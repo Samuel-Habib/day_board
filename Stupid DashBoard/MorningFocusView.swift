@@ -6,11 +6,13 @@ public struct MorningFocusView: View {
     
     // Focus Control for Apple TV Siri Remote
     private enum FocusButton: Hashable {
+        case modeSelect(MorningRoutineMode)
         case primaryAction
         case secondaryAction
         case exitDashboard
         case bathroomSubtask(String)
         case completionDone
+        case completionRunway
     }
     @FocusState private var focusedButton: FocusButton?
     
@@ -39,20 +41,20 @@ public struct MorningFocusView: View {
     
     public var body: some View {
         ZStack {
-            // Obsidian Backdrop
+            // Obsidian Deep Midnight Backdrop
             Color(red: 0.05, green: 0.05, blue: 0.07)
                 .ignoresSafeArea()
             
-            // Warm Sunrise Ambient Aura in top-left
+            // Mode-specific Ambient Aura
             RadialGradient(
                 gradient: Gradient(colors: [
-                    Color(red: 0.40, green: 0.22, blue: 0.05).opacity(0.32),
+                    modeAmbientAuraColor.opacity(0.34),
                     Color(white: 0.05).opacity(0.15),
                     Color(red: 0.03, green: 0.03, blue: 0.04)
                 ]),
                 center: .topLeading,
                 startRadius: 80,
-                endRadius: 900
+                endRadius: 960
             )
             .ignoresSafeArea()
             
@@ -61,8 +63,8 @@ public struct MorningFocusView: View {
                     // Top Header Bar
                     topHeaderBar
                         .padding(.horizontal, 60)
-                        .padding(.top, 40)
-                        .padding(.bottom, 24)
+                        .padding(.top, 36)
+                        .padding(.bottom, 20)
                     
                     // Single Focused Card (Center Stage)
                     Spacer()
@@ -76,17 +78,18 @@ public struct MorningFocusView: View {
                     
                     Spacer()
                     
-                    // Bottom Navigation Hint
+                    // Bottom Navigation & Remote Hints
                     bottomFooterHint
-                        .padding(.bottom, 36)
+                        .padding(.bottom, 32)
                 }
             } else {
-                // All Morning Habits Completed Celebration
+                // All Morning Protocol Completed Celebration
                 allCompletedCelebrationView
                     .transition(.scale.combined(with: .opacity))
             }
         }
         .animation(.easeInOut(duration: 0.4), value: currentTask?.id)
+        .animation(.easeInOut(duration: 0.3), value: appState.currentMorningMode)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -101,116 +104,195 @@ public struct MorningFocusView: View {
         }
     }
     
+    // MARK: - Ambient Aura Color
+    private var modeAmbientAuraColor: Color {
+        switch appState.currentMorningMode {
+        case .full:
+            return Color(red: 0.45, green: 0.25, blue: 0.05) // Warm Sunrise Amber
+        case .express:
+            return Color(red: 0.0, green: 0.30, blue: 0.45)  // Focused Cyan/Blue
+        case .hitByTruck:
+            return Color(red: 0.45, green: 0.12, blue: 0.18) // Emergency Triage Coral
+        }
+    }
+    
     // MARK: - Top Header Bar
     private var topHeaderBar: some View {
-        HStack(alignment: .center, spacing: 30) {
-            // Live Clock & Date
-            VStack(alignment: .leading, spacing: 4) {
-                Text(appState.currentTime)
-                    .font(.system(size: 80, weight: .bold, design: .default))
-                    .tracking(-1.5)
-                    .foregroundColor(.white)
-                
-                Text(appState.currentDateString)
-                    .font(.title3)
-                    .foregroundColor(Color.white.opacity(0.75))
-            }
-            
-            Spacer()
-            
-            // Progress Indicator (Zero Spoilers: Shows sequence number without future card names)
-            VStack(spacing: 8) {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(Color(red: 1.0, green: 0.78, blue: 0.2))
-                        .frame(width: 8, height: 8)
+        VStack(spacing: 20) {
+            // Top Row: Clock, Step/Fuse HUD, Weather & Exit
+            HStack(alignment: .center, spacing: 30) {
+                // Live Clock & Date
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(appState.currentTime)
+                        .font(.system(size: 72, weight: .bold, design: .default))
+                        .tracking(-1.5)
+                        .foregroundColor(.white)
                     
-                    Text("MORNING FOCUS")
-                        .font(.system(size: 13, weight: .black, design: .monospaced))
-                        .tracking(2.5)
-                        .foregroundColor(Color(red: 1.0, green: 0.78, blue: 0.2))
+                    Text(appState.currentDateString)
+                        .font(.title3)
+                        .foregroundColor(Color.white.opacity(0.75))
                 }
                 
-                Text("STEP \(currentIndex + 1) OF \(totalTasksCount)")
-                    .font(.system(size: 20, weight: .black, design: .monospaced))
-                    .foregroundColor(.white)
+                Spacer()
                 
-                // Segmented Step Indicator
-                HStack(spacing: 6) {
-                    ForEach(0..<totalTasksCount, id: \.self) { i in
-                        Capsule()
-                            .fill(
-                                i < currentIndex ? Color.green :
-                                (i == currentIndex ? Color(red: 1.0, green: 0.78, blue: 0.2) : Color.white.opacity(0.18))
-                            )
-                            .frame(width: i == currentIndex ? 24 : 10, height: 6)
-                    }
-                }
-            }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 14)
-            .background(Color.white.opacity(0.04))
-            .cornerRadius(16)
-            
-            Spacer()
-            
-            // Weather Summary & Dashboard Bypass
-            HStack(spacing: 20) {
-                HStack(spacing: 12) {
-                    Text(weatherEmoji(isRaining: appState.weather.isRaining, desc: appState.weather.conditionDescription))
-                        .font(.system(size: 32))
-                    
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text(appState.weather.conditionDescription)
-                            .font(.subheadline)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
+                // Watchdog Launch Fuse HUD
+                VStack(spacing: 8) {
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(modeAccentColor(appState.currentMorningMode))
+                            .frame(width: 8, height: 8)
                         
-                        Text("UV \(Int(round(appState.weather.uvIndex))) • Rain \(appState.weather.rainProbability)%")
-                            .font(.caption2)
-                            .foregroundColor(Color.white.opacity(0.70))
+                        Text(fuseStatusText.uppercased())
+                            .font(.system(size: 13, weight: .black, design: .monospaced))
+                            .tracking(2.0)
+                            .foregroundColor(modeAccentColor(appState.currentMorningMode))
+                    }
+                    
+                    Text("STEP \(currentIndex + 1) OF \(totalTasksCount)")
+                        .font(.system(size: 22, weight: .black, design: .monospaced))
+                        .foregroundColor(.white)
+                    
+                    // Segmented Step Indicator
+                    HStack(spacing: 6) {
+                        ForEach(0..<totalTasksCount, id: \.self) { i in
+                            Capsule()
+                                .fill(
+                                    i < currentIndex ? Color.green :
+                                    (i == currentIndex ? modeAccentColor(appState.currentMorningMode) : Color.white.opacity(0.18))
+                                )
+                                .frame(width: i == currentIndex ? 26 : 10, height: 6)
+                        }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 28)
+                .padding(.vertical, 14)
                 .background(Color.white.opacity(0.04))
-                .cornerRadius(14)
+                .cornerRadius(18)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(modeAccentColor(appState.currentMorningMode).opacity(0.25), lineWidth: 1)
+                )
                 
+                Spacer()
+                
+                // Weather Summary & Dashboard Bypass
+                HStack(spacing: 20) {
+                    HStack(spacing: 12) {
+                        Text(weatherEmoji(isRaining: appState.weather.isRaining, desc: appState.weather.conditionDescription))
+                            .font(.system(size: 30))
+                        
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(appState.weather.conditionDescription)
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                            
+                            Text("UV \(Int(round(appState.weather.uvIndex))) • Rain \(appState.weather.rainProbability)%")
+                                .font(.caption2)
+                                .foregroundColor(Color.white.opacity(0.70))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(14)
+                    
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState.isMorningFocusBypassed = true
+                        }
+                    }) {
+                        Image(systemName: "square.grid.2x2")
+                            .font(.title3)
+                            .foregroundColor(Color.white.opacity(0.65))
+                            .padding(10)
+                    }
+                    .buttonStyle(.bordered)
+                    .focused($focusedButton, equals: .exitDashboard)
+                }
+            }
+            
+            // Mode Switcher Bar (Apple TV Segmented Capsule Selector)
+            modeSwitcherBar
+        }
+    }
+    
+    // MARK: - Mode Switcher Bar
+    private var modeSwitcherBar: some View {
+        HStack(spacing: 16) {
+            ForEach(MorningRoutineMode.allCases) { mode in
+                let isCurrent = appState.currentMorningMode == mode
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        appState.isMorningFocusBypassed = true
+                        appState.switchMorningMode(to: mode)
                     }
                 }) {
-                    Image(systemName: "square.grid.2x2")
-                        .font(.title3)
-                        .foregroundColor(Color.white.opacity(0.60))
-                        .padding(10)
+                    HStack(spacing: 10) {
+                        Image(systemName: mode.iconName)
+                            .font(.headline)
+                        
+                        Text(mode.rawValue)
+                            .font(.headline)
+                            .fontWeight(isCurrent ? .bold : .medium)
+                        
+                        Text("(\(mode.estimatedMinutes)m)")
+                            .font(.subheadline)
+                            .foregroundColor(isCurrent ? .white : Color.white.opacity(0.50))
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 11)
+                    .background(
+                        isCurrent ?
+                            modeAccentColor(mode).opacity(0.24) :
+                            Color.white.opacity(0.05)
+                    )
+                    .foregroundColor(isCurrent ? .white : Color.white.opacity(0.65))
+                    .cornerRadius(14)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(
+                                isCurrent ? modeAccentColor(mode) : Color.white.opacity(0.12),
+                                lineWidth: isCurrent ? 2 : 1
+                            )
+                    )
                 }
-                .buttonStyle(.bordered)
-                .focused($focusedButton, equals: .exitDashboard)
+                .buttonStyle(.plain)
+                .focused($focusedButton, equals: .modeSelect(mode))
             }
+        }
+        .padding(.horizontal, 8)
+    }
+    
+    // Total Fuse Status Text
+    private var fuseStatusText: String {
+        let remainingSecs = appState.modeTotalRemainingSeconds()
+        let absSecs = Int(abs(remainingSecs))
+        let mins = absSecs / 60
+        let secs = absSecs % 60
+        if remainingSecs >= 0 {
+            return String(format: "FUSE: %02d:%02d REMAINING OF %02d:00", mins, secs, appState.currentMorningMode.estimatedMinutes)
+        } else {
+            return String(format: "FUSE: +%02d:%02d OVERTIME", mins, secs)
         }
     }
     
     // MARK: - Single Focus Card
     private func singleFocusCard(task: MorningTask) -> some View {
-        let deadlineInfo = computeDeadlineInfo(for: task)
-        
-        return VStack(spacing: 28) {
+        VStack(spacing: 26) {
             // Task Header: Icon + Title + Subtitle
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 ZStack {
                     Circle()
                         .fill(taskAccentColor(task).opacity(0.18))
-                        .frame(width: 86, height: 86)
+                        .frame(width: 82, height: 82)
                     
                     Image(systemName: task.iconName)
-                        .font(.system(size: 42, weight: .bold))
+                        .font(.system(size: 40, weight: .bold))
                         .foregroundColor(taskAccentColor(task))
                 }
                 
                 Text(task.title.uppercased())
-                    .font(.system(size: 52, weight: .black))
+                    .font(.system(size: 48, weight: .black))
                     .tracking(1.5)
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
@@ -220,69 +302,34 @@ public struct MorningFocusView: View {
                         .font(.title3)
                         .foregroundColor(Color.white.opacity(0.75))
                         .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
                 }
             }
             
-            // Deadline & Countdown Stage Banner
-            if let deadlineStr = task.targetDeadlineTime {
-                HStack(spacing: 28) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("TARGET DEADLINE")
-                            .font(.system(size: 11, weight: .black, design: .monospaced))
-                            .tracking(2)
-                            .foregroundColor(Color.white.opacity(0.60))
-                        
-                        Text(deadlineStr)
-                            .font(.system(size: 34, weight: .black, design: .monospaced))
-                            .foregroundColor(.white)
-                    }
-                    
-                    Divider()
-                        .frame(height: 48)
-                        .background(Color.white.opacity(0.15))
-                    
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(deadlineInfo.isOverdue ? "STATUS: OVERDUE" : "TIME REMAINING")
-                            .font(.system(size: 11, weight: .black, design: .monospaced))
-                            .tracking(2)
-                            .foregroundColor(deadlineInfo.isOverdue ? Color(red: 1.0, green: 0.35, blue: 0.35) : taskAccentColor(task))
-                        
-                        Text(deadlineInfo.countdownText)
-                            .font(.system(size: 34, weight: .black, design: .monospaced))
-                            .foregroundColor(deadlineInfo.isOverdue ? Color(red: 1.0, green: 0.35, blue: 0.35) : taskAccentColor(task))
-                    }
-                    
-                    Spacer()
-                    
-                    // Visual progress gauge
-                    VStack(alignment: .trailing, spacing: 6) {
-                        Text("\(task.durationMinutes ?? 10)m window")
-                            .font(.caption2)
-                            .foregroundColor(Color.white.opacity(0.55))
-                        
-                        ProgressView(value: deadlineInfo.progress)
-                            .progressViewStyle(.linear)
-                            .tint(deadlineInfo.isOverdue ? Color.red : taskAccentColor(task))
-                            .frame(width: 160)
-                    }
-                }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 18)
-                .background(Color.white.opacity(0.04))
-                .cornerRadius(18)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(
-                            deadlineInfo.isOverdue ?
-                                Color.red.opacity(0.40) :
-                                taskAccentColor(task).opacity(0.30),
-                            lineWidth: 1.5
-                        )
-                )
-            }
+            // Watchdog Relative Launch Countdown Stage Banner
+            watchdogCountdownStageBanner(task: task)
             
-            // Special Interactive Content
-            if task.isBathroomTask {
+            // Special Interactive / Triage Protocol Content
+            if let triage = task.triageType {
+                switch triage {
+                case .breathingReset:
+                    BreathingResetIllustrationView(onComplete: {
+                        completeTaskAndAdvance(task)
+                    })
+                    .padding(.horizontal, 8)
+                case .jawRelease:
+                    JawSuboccipitalIllustrationView(onComplete: {
+                        completeTaskAndAdvance(task)
+                    })
+                    .padding(.horizontal, 8)
+                case .electrolyteHydration:
+                    triageElectrolyteCard
+                case .temperatureContrast:
+                    triageTemperatureCard
+                case .medsSafety:
+                    triageMedsSafetyCard
+                }
+            } else if task.isBathroomTask {
                 bathroomSubtasksRow(task: task)
             } else if task.isMedsTask {
                 medsPreviewRow
@@ -294,10 +341,27 @@ public struct MorningFocusView: View {
                 guidedProtocolPreviewRow(tags: ["Plantar Fascia", "Straight Calf", "Bent Calf", "Calf Raises"])
             }
             
+            // Mode 2 Behavioral Safety Net Badge
+            if appState.currentMorningMode == .express {
+                HStack(spacing: 8) {
+                    Image(systemName: "sun.haze.fill")
+                        .foregroundColor(.orange)
+                    Text("BEHAVIORAL SAFETY NET: Mobility & Foot Rehab relocated to 2:00 PM Afternoon Recharge on dashboard.")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(Color.white.opacity(0.75))
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 8)
+                .background(Color.orange.opacity(0.12))
+                .cornerRadius(10)
+            }
+            
             // Primary Action Buttons
             actionButtons(task: task)
         }
-        .padding(48)
+        .padding(.horizontal, 48)
+        .padding(.vertical, 40)
         .frame(maxWidth: 1040)
         .background(
             RoundedRectangle(cornerRadius: 32)
@@ -314,8 +378,8 @@ public struct MorningFocusView: View {
                 .stroke(
                     LinearGradient(
                         colors: [
-                            taskAccentColor(task).opacity(0.5),
-                            taskAccentColor(task).opacity(0.15)
+                            taskAccentColor(task).opacity(0.45),
+                            taskAccentColor(task).opacity(0.12)
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -323,7 +387,229 @@ public struct MorningFocusView: View {
                     lineWidth: 2
                 )
         )
-        .shadow(color: taskAccentColor(task).opacity(0.12), radius: 40, x: 0, y: 12)
+        .shadow(color: taskAccentColor(task).opacity(0.10), radius: 36, x: 0, y: 12)
+    }
+    
+    // MARK: - Watchdog Countdown Stage Banner
+    private func watchdogCountdownStageBanner(task: MorningTask) -> some View {
+        let remainingSecs = appState.activeTaskRemainingSeconds()
+        let isOvertime = remainingSecs < 0
+        let absSecs = Int(abs(remainingSecs))
+        let mins = absSecs / 60
+        let secs = absSecs % 60
+        let allottedMinutes = task.durationMinutes ?? 5
+        let allottedSecs = Double(allottedMinutes * 60)
+        let elapsedSecs = allottedSecs - remainingSecs
+        let progress = min(1.0, max(0.0, elapsedSecs / allottedSecs))
+        
+        let bannerColor: Color = isOvertime ?
+            Color(red: 1.0, green: 0.65, blue: 0.15) : // Warm Amber (Never harsh red)
+            taskAccentColor(task)
+        
+        return HStack(spacing: 28) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("ALLOTTED WINDOW")
+                    .font(.system(size: 11, weight: .black, design: .monospaced))
+                    .tracking(2)
+                    .foregroundColor(Color.white.opacity(0.60))
+                
+                Text("\(allottedMinutes) MINUTES")
+                    .font(.system(size: 28, weight: .black, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+            
+            Divider()
+                .frame(height: 44)
+                .background(Color.white.opacity(0.15))
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(isOvertime ? "STATUS: OVERTIME" : "WATCHDOG LAUNCH FUSE")
+                    .font(.system(size: 11, weight: .black, design: .monospaced))
+                    .tracking(2)
+                    .foregroundColor(bannerColor)
+                
+                Text(isOvertime ? String(format: "+%02d:%02d OVERTIME", mins, secs) : String(format: "%02d:%02d REMAINING", mins, secs))
+                    .font(.system(size: 32, weight: .black, design: .monospaced))
+                    .foregroundColor(bannerColor)
+            }
+            
+            Spacer()
+            
+            // Visual progress gauge
+            VStack(alignment: .trailing, spacing: 6) {
+                Text(isOvertime ? "Running over timeline" : "\(Int(progress * 100))% elapsed")
+                    .font(.caption2)
+                    .foregroundColor(Color.white.opacity(0.55))
+                
+                ProgressView(value: progress)
+                    .progressViewStyle(.linear)
+                    .tint(bannerColor)
+                    .frame(width: 160)
+            }
+        }
+        .padding(.horizontal, 32)
+        .padding(.vertical, 16)
+        .background(Color.white.opacity(0.04))
+        .cornerRadius(18)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(bannerColor.opacity(0.35), lineWidth: 1.5)
+        )
+    }
+    
+    // MARK: - Triage Electrolyte Card (Mode 3, Step 1)
+    private var triageElectrolyteCard: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 16) {
+                ZStack {
+                    Circle()
+                        .fill(Color.cyan.opacity(0.20))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "drop.fill")
+                        .foregroundColor(.cyan)
+                        .font(.title3)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("16–20 OZ SALINE / ELECTROLYTE REHYDRATION")
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                    Text("Drink 1 full tall glass of water + 1 electrolyte packet (LMNT / LiquidIV) or 1/4 tsp salt.")
+                        .font(.subheadline)
+                        .foregroundColor(Color.white.opacity(0.75))
+                }
+                Spacer()
+            }
+            
+            HStack(spacing: 10) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(.cyan)
+                    .font(.caption)
+                Text("Why: Overnight hypovolemia reduces cerebral perfusion. Electrolytes expand plasma volume without causing cellular swelling.")
+                    .font(.caption)
+                    .foregroundColor(Color.cyan.opacity(0.90))
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.cyan.opacity(0.10))
+            .cornerRadius(10)
+        }
+        .padding(18)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(16)
+    }
+    
+    // MARK: - Triage Temperature Contrast Card (Mode 3, Step 3)
+    private var triageTemperatureCard: some View {
+        HStack(spacing: 20) {
+            // Cold Vasoconstriction on Temples
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "snowflake")
+                        .foregroundColor(.cyan)
+                    Text("TEMPLES: COLD")
+                        .font(.caption)
+                        .fontWeight(.black)
+                        .foregroundColor(.cyan)
+                }
+                Text("Hold ice pack or cold washcloth against temples / forehead while brushing teeth. Constricts throbbing temporal arteries.")
+                    .font(.caption)
+                    .foregroundColor(Color.white.opacity(0.75))
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.cyan.opacity(0.10))
+            .cornerRadius(14)
+            
+            // Warm Vasodilation on Neck
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Image(systemName: "flame.fill")
+                        .foregroundColor(.orange)
+                    Text("NECK / TRAPS: WARM")
+                        .font(.caption)
+                        .fontWeight(.black)
+                        .foregroundColor(.orange)
+                }
+                Text("Warm shower stream or heating pad directed at base of skull & upper traps. Relaxes tight occipital muscle guarding.")
+                    .font(.caption)
+                    .foregroundColor(Color.white.opacity(0.75))
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.orange.opacity(0.10))
+            .cornerRadius(14)
+        }
+    }
+    
+    // MARK: - Triage Meds Safety Card (Mode 3, Step 5)
+    private var triageMedsSafetyCard: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.yellow)
+                    .font(.title2)
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("EMPTY STOMACH SAFETY ALERT")
+                        .font(.headline)
+                        .fontWeight(.black)
+                        .foregroundColor(.yellow)
+                    Text("AVOID Ibuprofen (Advil/Motrin) and Aleve on an empty stomach to prevent gastric mucosal damage.")
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                }
+                Spacer()
+            }
+            
+            HStack(spacing: 16) {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Acetaminophen (Tylenol) 500-1000mg")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                }
+                
+                Text("•")
+                    .foregroundColor(Color.white.opacity(0.40))
+                
+                HStack(spacing: 8) {
+                    Image(systemName: "pills.fill")
+                        .foregroundColor(.cyan)
+                    Text("Omeprazole (acid control)")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                }
+                
+                Text("•")
+                    .foregroundColor(Color.white.opacity(0.40))
+                
+                HStack(spacing: 8) {
+                    Image(systemName: "cup.and.saucer.fill")
+                        .foregroundColor(.orange)
+                    Text("Small espresso OK (vasoconstriction)")
+                        .font(.caption)
+                        .foregroundColor(Color.white.opacity(0.80))
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.06))
+            .cornerRadius(10)
+        }
+        .padding(16)
+        .background(Color.yellow.opacity(0.12))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.yellow.opacity(0.40), lineWidth: 1.5)
+        )
     }
     
     // MARK: - Bathroom Subtasks Row
@@ -523,13 +809,13 @@ public struct MorningFocusView: View {
                 .focused($focusedButton, equals: .secondaryAction)
                 
             } else {
-                // Standard task (Teeth, Bathroom, Pack, Breakfast)
+                // Standard task or Triage step
                 Button(action: {
                     completeTaskAndAdvance(task)
                 }) {
                     HStack(spacing: 14) {
                         Image(systemName: "checkmark.circle.fill")
-                        Text("Complete & Next Task")
+                        Text("Complete & Next Step")
                     }
                     .font(.title3)
                     .fontWeight(.bold)
@@ -544,7 +830,7 @@ public struct MorningFocusView: View {
                 }
             }
         }
-        .padding(.top, 8)
+        .padding(.top, 4)
     }
     
     // MARK: - Task Advancement
@@ -565,7 +851,7 @@ public struct MorningFocusView: View {
             HStack(spacing: 8) {
                 Image(systemName: "playpause.fill")
                     .foregroundColor(Color.white.opacity(0.60))
-                Text("Play/Pause: Complete & Advance")
+                Text("Play/Pause: Complete Step")
                     .font(.caption)
                     .foregroundColor(Color.white.opacity(0.60))
             }
@@ -588,38 +874,117 @@ public struct MorningFocusView: View {
         VStack(spacing: 32) {
             Spacer()
             
-            Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 96))
-                .foregroundColor(.green)
-            
-            VStack(spacing: 10) {
-                Text("MORNING ROUTINE COMPLETE!")
-                    .font(.system(size: 48, weight: .black))
-                    .tracking(2)
-                    .foregroundColor(.white)
+            if appState.currentMorningMode == .hitByTruck {
+                Image(systemName: "heart.text.square.fill")
+                    .font(.system(size: 96))
+                    .foregroundColor(Color(red: 1.0, green: 0.45, blue: 0.35))
                 
-                Text("You've finished all \(totalTasksCount) habits with zero hesitation.")
-                    .font(.title3)
-                    .foregroundColor(Color.white.opacity(0.80))
-            }
-            
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    appState.isMorningFocusBypassed = true
+                VStack(spacing: 10) {
+                    Text("PHYSIOLOGICAL TRIAGE COMPLETE")
+                        .font(.system(size: 44, weight: .black))
+                        .tracking(2)
+                        .foregroundColor(.white)
+                    
+                    Text("CO₂ cleared • Hydration restored • Cranial tension relaxed.")
+                        .font(.title3)
+                        .foregroundColor(Color.white.opacity(0.85))
+                    
+                    Text("Desk landing is ready in Runway Grounding (20 min low-cognitive review).")
+                        .font(.subheadline)
+                        .foregroundColor(Color.white.opacity(0.65))
                 }
-            }) {
-                HStack(spacing: 12) {
-                    Image(systemName: "arrow.right.circle.fill")
-                    Text("Enter Ambient Dashboard")
+                
+                HStack(spacing: 24) {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.35)) {
+                            appState.launchGentleRunwayGrounding()
+                        }
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "pencil.and.outline")
+                            Text("Launch Gentle Runway (20m)")
+                        }
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 36)
+                        .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 1.0, green: 0.45, blue: 0.35))
+                    .focused($focusedButton, equals: .completionRunway)
+                    
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState.isMorningFocusBypassed = true
+                        }
+                    }) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "arrow.right.circle.fill")
+                            Text("Enter Dashboard")
+                        }
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 30)
+                        .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.bordered)
+                    .focused($focusedButton, equals: .completionDone)
                 }
-                .font(.title2)
-                .fontWeight(.bold)
-                .padding(.horizontal, 40)
-                .padding(.vertical, 16)
+                
+            } else {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 96))
+                    .foregroundColor(.green)
+                
+                VStack(spacing: 10) {
+                    Text("MORNING PROTOCOL COMPLETE!")
+                        .font(.system(size: 48, weight: .black))
+                        .tracking(2)
+                        .foregroundColor(.white)
+                    
+                    Text("You've finished all \(totalTasksCount) habits with zero friction.")
+                        .font(.title3)
+                        .foregroundColor(Color.white.opacity(0.80))
+                }
+                
+                HStack(spacing: 24) {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState.isMorningFocusBypassed = true
+                        }
+                    }) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "arrow.right.circle.fill")
+                            Text("Enter Ambient Dashboard")
+                        }
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .padding(.horizontal, 36)
+                        .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.green)
+                    .focused($focusedButton, equals: .completionDone)
+                    
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState.isMorningFocusBypassed = true
+                            appState.showWorkFocusScreen = true
+                        }
+                    }) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "timer")
+                            Text("Start Work Sprint")
+                        }
+                        .font(.title2)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 30)
+                        .padding(.vertical, 16)
+                    }
+                    .buttonStyle(.bordered)
+                    .focused($focusedButton, equals: .completionRunway)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .focused($focusedButton, equals: .completionDone)
             
             Spacer()
         }
@@ -627,51 +992,43 @@ public struct MorningFocusView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                focusedButton = .completionDone
+                if appState.currentMorningMode == .hitByTruck {
+                    focusedButton = .completionRunway
+                } else {
+                    focusedButton = .completionDone
+                }
             }
         }
     }
     
-    // MARK: - Deadline Calculation Helpers
-    private struct DeadlineInfo {
-        let isOverdue: Bool
-        let countdownText: String
-        let progress: Double
-    }
-    
-    private func computeDeadlineInfo(for task: MorningTask) -> DeadlineInfo {
-        guard let deadline = task.deadlineDate(for: appState.currentDate) else {
-            return DeadlineInfo(isOverdue: false, countdownText: "--:--", progress: 0.0)
-        }
-        
-        let now = appState.currentDate
-        let diff = deadline.timeIntervalSince(now)
-        let durationSecs = TimeInterval((task.durationMinutes ?? 10) * 60)
-        
-        if diff >= 0 {
-            let total = Int(diff)
-            let mins = total / 60
-            let secs = total % 60
-            let text = String(format: "%02d:%02d REMAINING", mins, secs)
-            let elapsed = max(0, durationSecs - diff)
-            let prog = min(1.0, max(0.0, elapsed / durationSecs))
-            return DeadlineInfo(isOverdue: false, countdownText: text, progress: prog)
-        } else {
-            let overdue = Int(abs(diff))
-            let mins = overdue / 60
-            let secs = overdue % 60
-            let text = String(format: "+%02d:%02d OVERDUE", mins, secs)
-            return DeadlineInfo(isOverdue: true, countdownText: text, progress: 1.0)
+    // MARK: - Color & Style Helpers
+    private func modeAccentColor(_ mode: MorningRoutineMode) -> Color {
+        switch mode {
+        case .full:
+            return Color(red: 1.0, green: 0.78, blue: 0.2) // Morning Sun Gold
+        case .express:
+            return Color.cyan // Cyan
+        case .hitByTruck:
+            return Color(red: 1.0, green: 0.45, blue: 0.35) // Recovery Coral
         }
     }
     
     private func taskAccentColor(_ task: MorningTask) -> Color {
+        if let triage = task.triageType {
+            switch triage {
+            case .electrolyteHydration: return Color.cyan
+            case .breathingReset: return Color(red: 0.0, green: 0.92, blue: 1.0)
+            case .temperatureContrast: return Color.orange
+            case .jawRelease: return Color(red: 0.2, green: 0.85, blue: 0.9)
+            case .medsSafety: return Color(red: 1.0, green: 0.45, blue: 0.35)
+            }
+        }
         if task.isFootRoutine { return Color.cyan }
         if task.isStretchingRoutine { return Color(red: 0.0, green: 0.92, blue: 1.0) }
         if task.isExerciseRoutine { return Color(red: 0.0, green: 0.92, blue: 1.0) }
         if task.isMedsTask { return Color.cyan }
         if task.isBathroomTask { return Color(red: 0.3, green: 0.75, blue: 1.0) }
-        return Color(red: 1.0, green: 0.78, blue: 0.2) // Morning Sun Gold
+        return modeAccentColor(appState.currentMorningMode)
     }
     
     private func weatherEmoji(isRaining: Bool, desc: String) -> String {

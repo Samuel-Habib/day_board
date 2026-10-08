@@ -25,15 +25,59 @@ public enum RoutineType: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+public enum MorningRoutineMode: String, Codable, CaseIterable, Identifiable {
+    case full = "Full Protocol"
+    case express = "Express Launch"
+    case hitByTruck = "Hit by a Truck"
+    
+    public var id: String { rawValue }
+    
+    public var estimatedMinutes: Int {
+        switch self {
+        case .full: return 55
+        case .express: return 20
+        case .hitByTruck: return 15
+        }
+    }
+    
+    public var iconName: String {
+        switch self {
+        case .full: return "figure.run"
+        case .express: return "bolt.fill"
+        case .hitByTruck: return "cross.case.fill"
+        }
+    }
+    
+    public var shortLabel: String {
+        switch self {
+        case .full: return "Full (55m)"
+        case .express: return "Express (20m)"
+        case .hitByTruck: return "Hit by a Truck (15m)"
+        }
+    }
+}
+
+public enum TriageTaskType: String, Codable, CaseIterable, Identifiable {
+    case electrolyteHydration = "Electrolyte Saline"
+    case breathingReset = "CO₂ Breath Reset"
+    case temperatureContrast = "Cold/Heat & Teeth"
+    case jawRelease = "Jaw & Suboccipital"
+    case medsSafety = "Meds Triage"
+    
+    public var id: String { rawValue }
+}
+
 public struct MorningTask: Identifiable, Codable, Equatable {
     public var id: UUID
     public var title: String
     public var subtitle: String?
     public var isCompleted: Bool
     public var routineType: RoutineType?
-    public var targetDeadlineTime: String? // e.g. "8:25 AM"
-    public var durationMinutes: Int?       // e.g. 10
+    public var targetDeadlineTime: String? // legacy wall-clock display e.g. "8:25 AM"
+    public var durationMinutes: Int?       // relative allotted duration e.g. 10
     public var subtasks: [String]?         // e.g. ["Shave", "Shower", "Cleanse", "Sunscreen"]
+    public var activeStartedAt: Date?      // exact timestamp this step became active
+    public var triageType: TriageTaskType? // triage task indicator for Mode 3
     
     public init(
         id: UUID = UUID(),
@@ -43,7 +87,9 @@ public struct MorningTask: Identifiable, Codable, Equatable {
         routineType: RoutineType? = nil,
         targetDeadlineTime: String? = nil,
         durationMinutes: Int? = nil,
-        subtasks: [String]? = nil
+        subtasks: [String]? = nil,
+        activeStartedAt: Date? = nil,
+        triageType: TriageTaskType? = nil
     ) {
         self.id = id
         self.title = title
@@ -53,6 +99,8 @@ public struct MorningTask: Identifiable, Codable, Equatable {
         self.targetDeadlineTime = targetDeadlineTime
         self.durationMinutes = durationMinutes
         self.subtasks = subtasks
+        self.activeStartedAt = activeStartedAt
+        self.triageType = triageType
     }
     
     // Custom Decodable to maintain full backwards compatibility with older JSON files
@@ -66,6 +114,8 @@ public struct MorningTask: Identifiable, Codable, Equatable {
         self.targetDeadlineTime = try container.decodeIfPresent(String.self, forKey: .targetDeadlineTime)
         self.durationMinutes = try container.decodeIfPresent(Int.self, forKey: .durationMinutes)
         self.subtasks = try container.decodeIfPresent([String].self, forKey: .subtasks)
+        self.activeStartedAt = try container.decodeIfPresent(Date.self, forKey: .activeStartedAt)
+        self.triageType = try container.decodeIfPresent(TriageTaskType.self, forKey: .triageType)
     }
     
     public var isFootRoutine: Bool {
@@ -89,6 +139,7 @@ public struct MorningTask: Identifiable, Codable, Equatable {
     
     public var isMedsTask: Bool {
         if routineType == .meds { return true }
+        if triageType == .medsSafety { return true }
         let lower = title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return lower.contains("med") || lower.contains("omeprazole") || lower.contains("prilosec") || lower.contains("pill")
     }
@@ -100,6 +151,15 @@ public struct MorningTask: Identifiable, Codable, Equatable {
     }
     
     public var iconName: String {
+        if let triage = triageType {
+            switch triage {
+            case .electrolyteHydration: return "drop.fill"
+            case .breathingReset: return "wind"
+            case .temperatureContrast: return "thermometer.snowflake"
+            case .jawRelease: return "hand.raised.fill"
+            case .medsSafety: return "pills.fill"
+            }
+        }
         if isFootRoutine { return "shoeprints.fill" }
         if isStretchingRoutine { return "figure.flexibility" }
         if isExerciseRoutine { return "figure.strengthtraining.traditional" }

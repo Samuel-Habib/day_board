@@ -303,6 +303,72 @@ public struct ContentView: View {
                 .padding(.bottom, 22)
             }
             
+            // 2:00 PM Afternoon Recharge Banner (Behavioral safety net for Express mode)
+            if appState.hasRelocatedAfternoonRecharge {
+                HStack(spacing: 20) {
+                    Image(systemName: "sun.haze.fill")
+                        .font(.title)
+                        .foregroundColor(.orange)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            Text("2:00 PM AFTERNOON RECHARGE")
+                                .font(.caption)
+                                .fontWeight(.black)
+                                .tracking(1.5)
+                                .foregroundColor(.orange)
+                            Text("• Express Mode Relocated")
+                                .font(.caption2)
+                                .foregroundColor(Color.white.opacity(0.60))
+                        }
+                        Text("Mobility & Foot Rehab preserved for peak afternoon recovery")
+                            .font(.subheadline)
+                            .foregroundColor(Color.white.opacity(0.85))
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState.openFootRoutine(period: .morning)
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "shoeprints.fill")
+                            Text("Foot Rehab (10m)")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.cyan)
+                    
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            appState.openStretchingRoutine(period: .morning)
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "figure.flexibility")
+                            Text("Mobility (10m)")
+                        }
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Color(red: 0.0, green: 0.92, blue: 1.0))
+                }
+                .padding(.horizontal, 22)
+                .padding(.vertical, 14)
+                .background(Color.orange.opacity(0.12))
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.orange.opacity(0.35), lineWidth: 1.5)
+                )
+                .padding(.bottom, 18)
+            }
+            
             // Omeprazole / Meds Timer Banner (shows countdown and 30m / 60m target times)
             if isMedsTimerActive {
                 medsTimerBanner

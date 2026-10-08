@@ -184,7 +184,11 @@ public struct WorkFocusView: View {
         .onExitCommand(perform: onDismiss)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
-            if uncompletedTasks.isEmpty {
+            if let preset = appState.presetRunwayBucketForDesk {
+                selectionMode = .runwayMode
+                selectedRunwayBucket = preset
+                appState.presetRunwayBucketForDesk = nil
+            } else if uncompletedTasks.isEmpty {
                 selectionMode = .runwayMode
             } else if selectedTaskId == nil {
                 selectedTaskId = uncompletedTasks.first?.id

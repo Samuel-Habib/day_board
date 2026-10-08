@@ -114,6 +114,16 @@ public class AppState {
         bodyweightExercises.filter { $0.isEnabled }.sorted { $0.order < $1.order }
     }
     
+    // Tri-Mode Morning Launch System State
+    public var currentMorningMode: MorningRoutineMode = .full
+    public var morningModeStartTime: Date?
+    public var activeTaskStartTime: Date?
+    public var presetRunwayBucketForDesk: RunwayBucket? = nil
+    
+    public var hasRelocatedAfternoonRecharge: Bool {
+        currentMorningMode == .express
+    }
+    
     // Morning Focus "No Choice" Mode State
     public var isMorningFocusBypassed: Bool = false
     
@@ -248,86 +258,216 @@ public class AppState {
             .appendingPathComponent("bodyweight_routine_sessions.json")
     }
     
+    public static func schedule(for mode: MorningRoutineMode) -> [MorningTask] {
+        switch mode {
+        case .full:
+            return [
+                MorningTask(
+                    title: "Teeth",
+                    subtitle: "Brush teeth & quick morning bathroom prep",
+                    isCompleted: false,
+                    routineType: nil,
+                    durationMinutes: 5,
+                    subtasks: nil
+                ),
+                MorningTask(
+                    title: "Meds",
+                    subtitle: "Omeprazole + D3 + 16 oz water (30m eating lock)",
+                    isCompleted: false,
+                    routineType: .meds,
+                    durationMinutes: 2,
+                    subtasks: nil
+                ),
+                MorningTask(
+                    title: "Stretch",
+                    subtitle: "Guided mobility & spine decompression",
+                    isCompleted: false,
+                    routineType: .stretching,
+                    durationMinutes: 10,
+                    subtasks: nil
+                ),
+                MorningTask(
+                    title: "Exercise",
+                    subtitle: "Bodyweight Pushups & Calisthenics",
+                    isCompleted: false,
+                    routineType: .exercise,
+                    durationMinutes: 15,
+                    subtasks: nil
+                ),
+                MorningTask(
+                    title: "Foot",
+                    subtitle: "Guided Plantar Fascia & Calf Rehab",
+                    isCompleted: false,
+                    routineType: .foot,
+                    durationMinutes: 10,
+                    subtasks: nil
+                ),
+                MorningTask(
+                    title: "Bathroom",
+                    subtitle: "Shave • Shower • Cleanse • Sunscreen",
+                    isCompleted: false,
+                    routineType: .bathroom,
+                    durationMinutes: 15,
+                    subtasks: ["Shave", "Shower", "Cleanse", "Sunscreen"]
+                ),
+                MorningTask(
+                    title: "Breakfast",
+                    subtitle: "Breakfast & morning hydration (eating window open)",
+                    isCompleted: false,
+                    routineType: nil,
+                    durationMinutes: 15,
+                    subtasks: nil
+                )
+            ]
+            
+        case .express:
+            return [
+                MorningTask(
+                    title: "Teeth & Face",
+                    subtitle: "Teeth brushing & cold water splash",
+                    isCompleted: false,
+                    routineType: nil,
+                    durationMinutes: 3,
+                    subtasks: nil
+                ),
+                MorningTask(
+                    title: "Meds",
+                    subtitle: "Omeprazole + D3 + 16 oz water",
+                    isCompleted: false,
+                    routineType: .meds,
+                    durationMinutes: 2,
+                    subtasks: nil
+                ),
+                MorningTask(
+                    title: "Shower",
+                    subtitle: "Hot shower, cleanse & sunscreen",
+                    isCompleted: false,
+                    routineType: .bathroom,
+                    durationMinutes: 10,
+                    subtasks: ["Shower", "Cleanse", "Sunscreen"]
+                ),
+                MorningTask(
+                    title: "Tech & Hydration",
+                    subtitle: "Grab water, cold brew & tech gear",
+                    isCompleted: false,
+                    routineType: nil,
+                    durationMinutes: 5,
+                    subtasks: nil
+                )
+            ]
+            
+        case .hitByTruck:
+            return [
+                MorningTask(
+                    title: "Electrolyte Saline",
+                    subtitle: "16–20 oz water + electrolyte packet or pinch of salt",
+                    isCompleted: false,
+                    routineType: nil,
+                    durationMinutes: 2,
+                    subtasks: nil,
+                    triageType: .electrolyteHydration
+                ),
+                MorningTask(
+                    title: "CO₂ Breath Reset",
+                    subtitle: "Guided 15 physiological sighs (double inhale nose, long exhale mouth)",
+                    isCompleted: false,
+                    routineType: nil,
+                    durationMinutes: 3,
+                    subtasks: nil,
+                    triageType: .breathingReset
+                ),
+                MorningTask(
+                    title: "Cold/Heat & Teeth",
+                    subtitle: "Ice on temples / forehead + warm water on neck / traps",
+                    isCompleted: false,
+                    routineType: nil,
+                    durationMinutes: 5,
+                    subtasks: nil,
+                    triageType: .temperatureContrast
+                ),
+                MorningTask(
+                    title: "Jaw & Suboccipital",
+                    subtitle: "Masseter knuckle drop (5x) & Occipital traction lift (20s)",
+                    isCompleted: false,
+                    routineType: nil,
+                    durationMinutes: 3,
+                    subtasks: nil,
+                    triageType: .jawRelease
+                ),
+                MorningTask(
+                    title: "Meds Triage",
+                    subtitle: "Omeprazole + Acetaminophen (Tylenol) • Avoid NSAIDs",
+                    isCompleted: false,
+                    routineType: .meds,
+                    durationMinutes: 2,
+                    subtasks: nil,
+                    triageType: .medsSafety
+                )
+            ]
+        }
+    }
+    
     public static func defaultMorningSchedule() -> [MorningTask] {
-        [
-            MorningTask(
-                title: "Teeth",
-                subtitle: "Brush teeth & quick morning bathroom prep",
-                isCompleted: false,
-                routineType: nil,
-                targetDeadlineTime: "8:25 AM",
-                durationMinutes: 10,
-                subtasks: nil
-            ),
-            MorningTask(
-                title: "Meds",
-                subtitle: "Omeprazole, Vitamin D3 & morning vitamins",
-                isCompleted: false,
-                routineType: .meds,
-                targetDeadlineTime: "8:30 AM",
-                durationMinutes: 5,
-                subtasks: nil
-            ),
-            MorningTask(
-                title: "Stretch",
-                subtitle: "Guided mobility & spine decompression",
-                isCompleted: false,
-                routineType: .stretching,
-                targetDeadlineTime: "8:40 AM",
-                durationMinutes: 10,
-                subtasks: nil
-            ),
-            MorningTask(
-                title: "Exercise",
-                subtitle: "Bodyweight Pushups & Calisthenics",
-                isCompleted: false,
-                routineType: .exercise,
-                targetDeadlineTime: "8:55 AM",
-                durationMinutes: 15,
-                subtasks: nil
-            ),
-            MorningTask(
-                title: "Foot",
-                subtitle: "Guided Plantar Fascia & Calf Rehab",
-                isCompleted: false,
-                routineType: .foot,
-                targetDeadlineTime: "9:05 AM",
-                durationMinutes: 10,
-                subtasks: nil
-            ),
-            MorningTask(
-                title: "Bathroom",
-                subtitle: "Shave • Shower • Cleanse • Sunscreen",
-                isCompleted: false,
-                routineType: .bathroom,
-                targetDeadlineTime: "9:30 AM",
-                durationMinutes: 25,
-                subtasks: ["Shave", "Shower", "Cleanse", "Sunscreen"]
-            ),
-            MorningTask(
-                title: "Pack",
-                subtitle: "Pack bag, tech & daily essentials",
-                isCompleted: false,
-                routineType: nil,
-                targetDeadlineTime: "9:40 AM",
-                durationMinutes: 10,
-                subtasks: nil
-            ),
-            MorningTask(
-                title: "Breakfast",
-                subtitle: "Breakfast & morning hydration",
-                isCompleted: false,
-                routineType: nil,
-                targetDeadlineTime: "10:00 AM",
-                durationMinutes: 20,
-                subtasks: nil
-            )
-        ]
+        schedule(for: .full)
+    }
+    
+    public func switchMorningMode(to newMode: MorningRoutineMode) {
+        guard newMode != currentMorningMode else { return }
+        
+        let oldTasks = morningTasks
+        var newTasks = AppState.schedule(for: newMode)
+        
+        // Carry over completed progress intelligently:
+        let teethCompleted = oldTasks.contains { ($0.title.contains("Teeth") || $0.triageType == .temperatureContrast) && $0.isCompleted }
+        let medsCompleted = oldTasks.contains { $0.isMedsTask && $0.isCompleted }
+        let showerCompleted = oldTasks.contains { $0.isBathroomTask && $0.isCompleted }
+        let stretchCompleted = oldTasks.contains { $0.isStretchingRoutine && $0.isCompleted }
+        let footCompleted = oldTasks.contains { $0.isFootRoutine && $0.isCompleted }
+        let exerciseCompleted = oldTasks.contains { $0.isExerciseRoutine && $0.isCompleted }
+        
+        for i in 0..<newTasks.count {
+            if (newTasks[i].title.contains("Teeth") || newTasks[i].triageType == .temperatureContrast) && teethCompleted {
+                newTasks[i].isCompleted = true
+            } else if newTasks[i].isMedsTask && medsCompleted {
+                newTasks[i].isCompleted = true
+            } else if newTasks[i].isBathroomTask && showerCompleted {
+                newTasks[i].isCompleted = true
+            } else if newTasks[i].isStretchingRoutine && stretchCompleted {
+                newTasks[i].isCompleted = true
+            } else if newTasks[i].isFootRoutine && footCompleted {
+                newTasks[i].isCompleted = true
+            } else if newTasks[i].isExerciseRoutine && exerciseCompleted {
+                newTasks[i].isCompleted = true
+            }
+        }
+        
+        currentMorningMode = newMode
+        UserDefaults.standard.set(newMode.rawValue, forKey: "currentMorningMode")
+        morningTasks = newTasks
+        
+        let now = Date()
+        activeTaskStartTime = now
+        if let firstIncompleteIdx = morningTasks.firstIndex(where: { !$0.isCompleted }) {
+            morningTasks[firstIncompleteIdx].activeStartedAt = now
+        } else {
+            activeTaskStartTime = nil
+            if newMode == .hitByTruck {
+                presetRunwayBucketForDesk = .grounding
+            }
+        }
+        
+        saveMorningTasks()
     }
     
     public init() {
         // Resist screensaver on Apple TV while app is active
         UIApplication.shared.isIdleTimerDisabled = true
+        
+        // Load persisted morning mode if present
+        if let savedModeRaw = UserDefaults.standard.string(forKey: "currentMorningMode"),
+           let savedMode = MorningRoutineMode(rawValue: savedModeRaw) {
+            self.currentMorningMode = savedMode
+        }
         
         // Ensure default API key is saved
         if UserDefaults.standard.string(forKey: "timekeepingApiKey") == nil || (UserDefaults.standard.string(forKey: "timekeepingApiKey")?.isEmpty ?? true) {
@@ -348,12 +488,12 @@ public class AppState {
             await fetchCloudData()
         }
         
-        // Populate or migrate to the 8:15 AM scheduled morning tasks
-        let hasUpdatedV3 = UserDefaults.standard.bool(forKey: "hasUpdatedMorningSchedule_v3")
-        if !hasUpdatedV3 || morningTasks.isEmpty {
-            morningTasks = AppState.defaultMorningSchedule()
+        // Populate or migrate to the Tri-Mode morning schedule
+        let hasUpdatedV4 = UserDefaults.standard.bool(forKey: "hasUpdatedTriModeSchedule_v4")
+        if !hasUpdatedV4 || morningTasks.isEmpty {
+            morningTasks = AppState.schedule(for: currentMorningMode)
             saveMorningTasks()
-            UserDefaults.standard.set(true, forKey: "hasUpdatedMorningSchedule_v3")
+            UserDefaults.standard.set(true, forKey: "hasUpdatedTriModeSchedule_v4")
         }
         
         // Populate default night tasks if empty
@@ -459,6 +599,19 @@ public class AppState {
                 showOvertimeShutdownAlert = true
             }
         }
+        
+        // Initialize Watchdog Launch Fuse for active morning focus
+        if isMorningFocusActive {
+            if morningModeStartTime == nil {
+                morningModeStartTime = now
+            }
+            if activeTaskStartTime == nil {
+                activeTaskStartTime = now
+                if let idx = morningTasks.firstIndex(where: { !$0.isCompleted }) {
+                    morningTasks[idx].activeStartedAt = now
+                }
+            }
+        }
     }
     
     // MARK: - Day Change Logic
@@ -471,6 +624,9 @@ public class AppState {
         
         if todayString != lastDateString {
             // New Day Reset!
+            morningModeStartTime = nil
+            activeTaskStartTime = nil
+            presetRunwayBucketForDesk = nil
             resetMorningTasks()
             resetNightTasks()
             cleanOldDailyTasks()
@@ -487,9 +643,9 @@ public class AppState {
     }
     
     private func resetMorningTasks() {
-        for i in 0..<morningTasks.count {
-            morningTasks[i].isCompleted = false
-        }
+        morningModeStartTime = nil
+        activeTaskStartTime = nil
+        morningTasks = AppState.schedule(for: currentMorningMode)
         saveMorningTasks()
     }
     
@@ -542,12 +698,47 @@ public class AppState {
         if let index = morningTasks.firstIndex(where: { $0.id == task.id }) {
             morningTasks[index].isCompleted = true
             recordTaskCompletion(period: .morning, taskId: task.id, taskTitle: task.title)
+            
+            let now = Date()
+            if let nextIdx = morningTasks.firstIndex(where: { !$0.isCompleted }) {
+                activeTaskStartTime = now
+                morningTasks[nextIdx].activeStartedAt = now
+            } else {
+                activeTaskStartTime = nil
+                if currentMorningMode == .hitByTruck {
+                    presetRunwayBucketForDesk = .grounding
+                }
+            }
+            
             saveMorningTasks()
             
             if task.isMedsTask && medsTakenTimestamp == nil {
                 startMedsTimer()
             }
         }
+    }
+    
+    // MARK: - Watchdog Launch Fuse Calculations
+    public func activeTaskRemainingSeconds() -> Double {
+        guard let task = currentMorningTask else { return 0.0 }
+        let allotted = Double(task.durationMinutes ?? 5) * 60.0
+        let start = activeTaskStartTime ?? currentDate
+        let elapsed = currentDate.timeIntervalSince(start)
+        return allotted - elapsed
+    }
+    
+    public func modeTotalRemainingSeconds() -> Double {
+        let modeTotal = Double(currentMorningMode.estimatedMinutes) * 60.0
+        guard let start = morningModeStartTime else { return modeTotal }
+        let elapsed = currentDate.timeIntervalSince(start)
+        return modeTotal - elapsed
+    }
+    
+    public func launchGentleRunwayGrounding() {
+        isMorningFocusBypassed = true
+        presetRunwayBucketForDesk = .grounding
+        startWorkSession(title: "Runway: Grounding", project: "Runway", runwayBucket: .grounding)
+        showWorkFocusScreen = true
     }
     
     public func updateMorningTaskDetails(id: UUID, title: String, subtitle: String?, targetDeadlineTime: String?, durationMinutes: Int?) {
