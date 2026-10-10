@@ -185,6 +185,41 @@ public class AppState {
     // Meds / Omeprazole Timer
     public var medsTakenTimestamp: Date?
     
+    public var isMedsTimerActive: Bool {
+        guard let taken = medsTakenTimestamp else { return false }
+        // Keep active for up to 2 hours after meds were taken
+        return currentDate.timeIntervalSince(taken) < 2 * 3600
+    }
+    
+    public var eatAfterDate: Date? {
+        medsTakenTimestamp?.addingTimeInterval(30 * 60) // 30 minutes lockout
+    }
+    
+    public var eatBeforeDate: Date? {
+        medsTakenTimestamp?.addingTimeInterval(60 * 60) // 60 minutes window
+    }
+    
+    public var isOmeprazoleWaitPhase: Bool {
+        guard let eatAfter = eatAfterDate else { return false }
+        return currentDate < eatAfter
+    }
+    
+    public var isOmeprazoleEatingWindow: Bool {
+        guard let eatAfter = eatAfterDate, let eatBefore = eatBeforeDate else { return false }
+        return currentDate >= eatAfter && currentDate <= eatBefore
+    }
+    
+    public var omeprazoleWaitSecondsRemaining: Int {
+        guard let eatAfter = eatAfterDate else { return 0 }
+        return max(0, Int(eatAfter.timeIntervalSince(currentDate)))
+    }
+    
+    public var omeprazoleEatingWindowMinutesRemaining: Int {
+        guard let eatBefore = eatBeforeDate else { return 0 }
+        let secs = max(0, Int(eatBefore.timeIntervalSince(currentDate)))
+        return max(1, (secs + 59) / 60)
+    }
+    
     // Weather
     public var weather: WeatherSummary = WeatherSummary()
     public var isWeatherLoading: Bool = false
@@ -484,6 +519,15 @@ public class AppState {
         loadStretchingRoutineData()
         loadBodyweightRoutineData()
         
+        // Restore meds taken timestamp if valid within the last 2 hours
+        let savedMedsTs = UserDefaults.standard.double(forKey: "medsTakenTimestamp")
+        if savedMedsTs > 0 {
+            let savedDate = Date(timeIntervalSince1970: savedMedsTs)
+            if Date().timeIntervalSince(savedDate) < 2 * 3600 {
+                self.medsTakenTimestamp = savedDate
+            }
+        }
+        
         Task {
             await fetchCloudData()
         }
@@ -627,6 +671,7 @@ public class AppState {
             morningModeStartTime = nil
             activeTaskStartTime = nil
             presetRunwayBucketForDesk = nil
+            clearMedsTimer()
             resetMorningTasks()
             resetNightTasks()
             cleanOldDailyTasks()

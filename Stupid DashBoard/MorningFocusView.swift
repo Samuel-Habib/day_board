@@ -13,6 +13,7 @@ public struct MorningFocusView: View {
         case bathroomSubtask(String)
         case completionDone
         case completionRunway
+        case dismissOmeprazole
     }
     @FocusState private var focusedButton: FocusButton?
     
@@ -63,8 +64,16 @@ public struct MorningFocusView: View {
                     // Top Header Bar
                     topHeaderBar
                         .padding(.horizontal, 60)
-                        .padding(.top, 36)
-                        .padding(.bottom, 20)
+                        .padding(.top, 32)
+                        .padding(.bottom, 16)
+                    
+                    // Persistent Omeprazole Timer Banner across all steps
+                    if appState.isMedsTimerActive {
+                        omeprazoleTimerBanner
+                            .padding(.horizontal, 60)
+                            .padding(.bottom, 12)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     
                     // Single Focused Card (Center Stage)
                     Spacer()
@@ -80,7 +89,7 @@ public struct MorningFocusView: View {
                     
                     // Bottom Navigation & Remote Hints
                     bottomFooterHint
-                        .padding(.bottom, 32)
+                        .padding(.bottom, 28)
                 }
             } else {
                 // All Morning Protocol Completed Celebration
@@ -90,6 +99,7 @@ public struct MorningFocusView: View {
         }
         .animation(.easeInOut(duration: 0.4), value: currentTask?.id)
         .animation(.easeInOut(duration: 0.3), value: appState.currentMorningMode)
+        .animation(.easeInOut(duration: 0.3), value: appState.isMedsTimerActive)
         .onAppear {
             UIApplication.shared.isIdleTimerDisabled = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -118,13 +128,13 @@ public struct MorningFocusView: View {
     
     // MARK: - Top Header Bar
     private var topHeaderBar: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 18) {
             // Top Row: Clock, Step/Fuse HUD, Weather & Exit
             HStack(alignment: .center, spacing: 30) {
                 // Live Clock & Date
                 VStack(alignment: .leading, spacing: 4) {
                     Text(appState.currentTime)
-                        .font(.system(size: 72, weight: .bold, design: .default))
+                        .font(.system(size: 70, weight: .bold, design: .default))
                         .tracking(-1.5)
                         .foregroundColor(.white)
                     
@@ -276,9 +286,113 @@ public struct MorningFocusView: View {
         }
     }
     
+    // MARK: - Omeprazole Timer Persistent Banner
+    private var omeprazoleTimerBanner: some View {
+        let isWaitPhase = appState.isOmeprazoleWaitPhase
+        let isWindowOpen = appState.isOmeprazoleEatingWindow
+        
+        let bannerAccent: Color = isWaitPhase ?
+            Color(red: 1.0, green: 0.65, blue: 0.15) : // Warm Amber
+            (isWindowOpen ? Color.green : Color.white.opacity(0.60))
+        
+        let iconName = isWaitPhase ? "hourglass.bottomhalf.filled" : (isWindowOpen ? "fork.knife" : "checkmark.seal.fill")
+        
+        let waitSecs = appState.omeprazoleWaitSecondsRemaining
+        let waitMins = waitSecs / 60
+        let waitRemainder = waitSecs % 60
+        let countdownStr = String(format: "%02d:%02d", waitMins, waitRemainder)
+        
+        return HStack(spacing: 20) {
+            ZStack {
+                Circle()
+                    .fill(bannerAccent.opacity(0.20))
+                    .frame(width: 48, height: 48)
+                Image(systemName: iconName)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundColor(bannerAccent)
+            }
+            
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 14) {
+                    if isWaitPhase {
+                        Text("OMEPRAZOLE 30M LOCKOUT")
+                            .font(.system(size: 14, weight: .black, design: .monospaced))
+                            .tracking(1.5)
+                            .foregroundColor(bannerAccent)
+                        
+                        Text("\(countdownStr) REMAINING BEFORE FOOD")
+                            .font(.system(size: 20, weight: .black, design: .monospaced))
+                            .foregroundColor(.white)
+                    } else if isWindowOpen {
+                        Text("EATING WINDOW OPEN")
+                            .font(.system(size: 14, weight: .black, design: .monospaced))
+                            .tracking(1.5)
+                            .foregroundColor(bannerAccent)
+                        
+                        Text("\(appState.omeprazoleEatingWindowMinutesRemaining)M REMAINING TO FUEL")
+                            .font(.system(size: 20, weight: .black, design: .monospaced))
+                            .foregroundColor(.white)
+                    } else {
+                        Text("OMEPRAZOLE WINDOW CLOSED")
+                            .font(.system(size: 14, weight: .black, design: .monospaced))
+                            .tracking(1.5)
+                            .foregroundColor(Color.white.opacity(0.70))
+                    }
+                }
+                
+                HStack(spacing: 14) {
+                    if let eatAfter = appState.eatAfterDate {
+                        Text("Eat after: \(formatTime(eatAfter))")
+                            .foregroundColor(Color.white.opacity(0.85))
+                    }
+                    if let eatBefore = appState.eatBeforeDate {
+                        Text("•")
+                            .foregroundColor(Color.white.opacity(0.35))
+                        Text("Window closes: \(formatTime(eatBefore))")
+                            .foregroundColor(Color.white.opacity(0.85))
+                    }
+                    if let taken = appState.medsTakenTimestamp {
+                        Text("•")
+                            .foregroundColor(Color.white.opacity(0.35))
+                        Text("Taken at \(formatTime(taken))")
+                            .foregroundColor(Color.white.opacity(0.60))
+                    }
+                }
+                .font(.caption)
+            }
+            
+            Spacer()
+            
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    appState.clearMedsTimer()
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "xmark")
+                    Text("Dismiss")
+                }
+                .font(.caption)
+                .foregroundColor(Color.white.opacity(0.75))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.bordered)
+            .focused($focusedButton, equals: .dismissOmeprazole)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 12)
+        .background(bannerAccent.opacity(0.12))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(bannerAccent.opacity(0.38), lineWidth: 1.5)
+        )
+    }
+    
     // MARK: - Single Focus Card
     private func singleFocusCard(task: MorningTask) -> some View {
-        VStack(spacing: 26) {
+        VStack(spacing: 24) {
             // Task Header: Icon + Title + Subtitle
             VStack(spacing: 12) {
                 ZStack {
@@ -339,6 +453,8 @@ public struct MorningFocusView: View {
                 guidedProtocolPreviewRow(tags: ["Pushups", "Air Squats", "Forearm Plank"])
             } else if task.isFootRoutine {
                 guidedProtocolPreviewRow(tags: ["Plantar Fascia", "Straight Calf", "Bent Calf", "Calf Raises"])
+            } else if task.title.localizedCaseInsensitiveContains("breakfast") {
+                breakfastOmeprazoleCard
             }
             
             // Mode 2 Behavioral Safety Net Badge
@@ -361,7 +477,7 @@ public struct MorningFocusView: View {
             actionButtons(task: task)
         }
         .padding(.horizontal, 48)
-        .padding(.vertical, 40)
+        .padding(.vertical, 36)
         .frame(maxWidth: 1040)
         .background(
             RoundedRectangle(cornerRadius: 32)
@@ -455,6 +571,142 @@ public struct MorningFocusView: View {
             RoundedRectangle(cornerRadius: 18)
                 .stroke(bannerColor.opacity(0.35), lineWidth: 1.5)
         )
+    }
+    
+    // MARK: - Breakfast Omeprazole Lockout / Eating Window Card
+    @ViewBuilder
+    private var breakfastOmeprazoleCard: some View {
+        let isWaitPhase = appState.isOmeprazoleWaitPhase
+        let isWindowOpen = appState.isOmeprazoleEatingWindow
+        
+        let waitSecs = appState.omeprazoleWaitSecondsRemaining
+        let waitMins = waitSecs / 60
+        let waitRemainder = waitSecs % 60
+        let countdownStr = String(format: "%02d:%02d", waitMins, waitRemainder)
+        
+        if appState.isMedsTimerActive {
+            if isWaitPhase {
+                VStack(spacing: 12) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(red: 1.0, green: 0.65, blue: 0.15).opacity(0.20))
+                                .frame(width: 48, height: 48)
+                            Image(systemName: "hourglass.bottomhalf.filled")
+                                .foregroundColor(Color(red: 1.0, green: 0.65, blue: 0.15))
+                                .font(.title3)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("OMEPRAZOLE 30-MINUTE LOCKOUT ACTIVE")
+                                .font(.system(size: 14, weight: .black, design: .monospaced))
+                                .tracking(1.5)
+                                .foregroundColor(Color(red: 1.0, green: 0.65, blue: 0.15))
+                            
+                            Text("\(countdownStr) BEFORE EATING WINDOW OPENS")
+                                .font(.system(size: 20, weight: .black, design: .monospaced))
+                                .foregroundColor(.white)
+                        }
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 10) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(Color(red: 1.0, green: 0.65, blue: 0.15))
+                            .font(.caption)
+                        if let eatAfter = appState.eatAfterDate {
+                            Text("Window opens at \(formatTime(eatAfter)). Wait for acid suppression to peak before consuming food.")
+                                .font(.caption)
+                                .foregroundColor(Color.white.opacity(0.85))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color(red: 1.0, green: 0.65, blue: 0.15).opacity(0.12))
+                    .cornerRadius(10)
+                }
+                .padding(18)
+                .background(Color(red: 1.0, green: 0.65, blue: 0.15).opacity(0.08))
+                .cornerRadius(18)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(Color(red: 1.0, green: 0.65, blue: 0.15).opacity(0.35), lineWidth: 1.5)
+                )
+            } else if isWindowOpen {
+                VStack(spacing: 12) {
+                    HStack(spacing: 14) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.green.opacity(0.20))
+                                .frame(width: 48, height: 48)
+                            Image(systemName: "fork.knife")
+                                .foregroundColor(.green)
+                                .font(.title3)
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("OPTIMAL EATING WINDOW OPEN")
+                                .font(.system(size: 14, weight: .black, design: .monospaced))
+                                .tracking(1.5)
+                                .foregroundColor(.green)
+                            
+                            Text("\(appState.omeprazoleEatingWindowMinutesRemaining)M REMAINING TO FUEL")
+                                .font(.system(size: 20, weight: .black, design: .monospaced))
+                                .foregroundColor(.white)
+                        }
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                        if let eatBefore = appState.eatBeforeDate {
+                            Text("Optimal PPI absorption achieved. Eating window closes at \(formatTime(eatBefore)). Enjoy breakfast!")
+                                .font(.caption)
+                                .foregroundColor(Color.white.opacity(0.85))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.green.opacity(0.12))
+                    .cornerRadius(10)
+                }
+                .padding(18)
+                .background(Color.green.opacity(0.08))
+                .cornerRadius(18)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(Color.green.opacity(0.35), lineWidth: 1.5)
+                )
+            } else {
+                HStack(spacing: 12) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.white.opacity(0.60))
+                    Text("Omeprazole eating window completed.")
+                        .font(.subheadline)
+                        .foregroundColor(Color.white.opacity(0.70))
+                    Spacer()
+                }
+                .padding(14)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(14)
+            }
+        } else {
+            HStack(spacing: 12) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundColor(.cyan)
+                Text("Breakfast & Morning Hydration • Omeprazole requires a 30m fasting wait if taken today.")
+                    .font(.subheadline)
+                    .foregroundColor(Color.white.opacity(0.80))
+                Spacer()
+            }
+            .padding(14)
+            .background(Color.white.opacity(0.05))
+            .cornerRadius(14)
+        }
     }
     
     // MARK: - Triage Electrolyte Card (Mode 3, Step 1)
@@ -649,22 +901,53 @@ public struct MorningFocusView: View {
     
     // MARK: - Meds Preview Row
     private var medsPreviewRow: some View {
-        HStack(spacing: 14) {
-            ForEach(appState.medications.filter { $0.period == .morning }.prefix(4)) { med in
-                HStack(spacing: 6) {
-                    Image(systemName: med.isCompleted ? "checkmark.circle.fill" : "pills")
-                        .foregroundColor(med.isCompleted ? .green : .cyan)
-                        .font(.caption)
-                    
-                    Text(med.name)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(med.isCompleted ? Color.white.opacity(0.60) : .white)
+        VStack(spacing: 10) {
+            HStack(spacing: 14) {
+                ForEach(appState.medications.filter { $0.period == .morning }.prefix(4)) { med in
+                    HStack(spacing: 6) {
+                        Image(systemName: med.isCompleted ? "checkmark.circle.fill" : "pills")
+                            .foregroundColor(med.isCompleted ? .green : .cyan)
+                            .font(.caption)
+                        
+                        Text(med.name)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(med.isCompleted ? Color.white.opacity(0.60) : .white)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(10)
                 }
-                .padding(.horizontal, 12)
+            }
+            
+            if appState.isMedsTimerActive {
+                HStack(spacing: 8) {
+                    Image(systemName: "hourglass.bottomhalf.filled")
+                        .foregroundColor(Color(red: 1.0, green: 0.65, blue: 0.15))
+                    let waitSecs = appState.omeprazoleWaitSecondsRemaining
+                    let countdownStr = String(format: "%02d:%02d", waitSecs / 60, waitSecs % 60)
+                    Text("Omeprazole logged • 30m eating lock active (\(countdownStr) remaining)")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(Color(red: 1.0, green: 0.65, blue: 0.15))
+                }
+                .padding(.horizontal, 14)
                 .padding(.vertical, 6)
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(10)
+                .background(Color(red: 1.0, green: 0.65, blue: 0.15).opacity(0.12))
+                .cornerRadius(8)
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: "pills.fill")
+                        .foregroundColor(.cyan)
+                    Text("Taking Omeprazole with water arms a 30m eating lockout timer before breakfast")
+                        .font(.caption)
+                        .foregroundColor(Color.white.opacity(0.70))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.05))
+                .cornerRadius(8)
             }
         }
     }
@@ -871,12 +1154,12 @@ public struct MorningFocusView: View {
     
     // MARK: - All Completed Celebration View
     private var allCompletedCelebrationView: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 28) {
             Spacer()
             
             if appState.currentMorningMode == .hitByTruck {
                 Image(systemName: "heart.text.square.fill")
-                    .font(.system(size: 96))
+                    .font(.system(size: 92))
                     .foregroundColor(Color(red: 1.0, green: 0.45, blue: 0.35))
                 
                 VStack(spacing: 10) {
@@ -893,6 +1176,9 @@ public struct MorningFocusView: View {
                         .font(.subheadline)
                         .foregroundColor(Color.white.opacity(0.65))
                 }
+                
+                // Show Omeprazole lockout on celebration if still active
+                celebrationOmeprazoleStatus
                 
                 HStack(spacing: 24) {
                     Button(action: {
@@ -933,7 +1219,7 @@ public struct MorningFocusView: View {
                 
             } else {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 96))
+                    .font(.system(size: 92))
                     .foregroundColor(.green)
                 
                 VStack(spacing: 10) {
@@ -946,6 +1232,9 @@ public struct MorningFocusView: View {
                         .font(.title3)
                         .foregroundColor(Color.white.opacity(0.80))
                 }
+                
+                // Show Omeprazole lockout on celebration if still active
+                celebrationOmeprazoleStatus
                 
                 HStack(spacing: 24) {
                     Button(action: {
@@ -1001,6 +1290,37 @@ public struct MorningFocusView: View {
         }
     }
     
+    // MARK: - Celebration Omeprazole Status Banner
+    @ViewBuilder
+    private var celebrationOmeprazoleStatus: some View {
+        if appState.isMedsTimerActive {
+            let isWait = appState.isOmeprazoleWaitPhase
+            let isWindowOpen = appState.isOmeprazoleEatingWindow
+            let waitSecs = appState.omeprazoleWaitSecondsRemaining
+            let countdownStr = String(format: "%02d:%02d", waitSecs / 60, waitSecs % 60)
+            
+            HStack(spacing: 14) {
+                Image(systemName: isWait ? "hourglass.bottomhalf.filled" : (isWindowOpen ? "fork.knife" : "checkmark.circle.fill"))
+                    .foregroundColor(isWait ? Color(red: 1.0, green: 0.65, blue: 0.15) : (isWindowOpen ? .green : .white))
+                    .font(.title3)
+                
+                if isWait {
+                    Text("Omeprazole Lockout: \(countdownStr) remaining before eating breakfast (Opens at \(formatTime(appState.eatAfterDate!)))")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                } else if isWindowOpen {
+                    Text("Eating Window Open: Optimal absorption achieved! (\(appState.omeprazoleEatingWindowMinutesRemaining)m remaining)")
+                        .font(.headline)
+                        .foregroundColor(.green)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(Color.white.opacity(0.08))
+            .cornerRadius(14)
+        }
+    }
+    
     // MARK: - Color & Style Helpers
     private func modeAccentColor(_ mode: MorningRoutineMode) -> Color {
         switch mode {
@@ -1039,5 +1359,11 @@ public struct MorningFocusView: View {
         if lower.contains("fog") || lower.contains("mist") { return "🌫️" }
         if lower.contains("cloud") || lower.contains("overcast") { return "☁️" }
         return "☀️"
+    }
+    
+    private func formatTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
