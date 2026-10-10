@@ -6,6 +6,7 @@ public enum RoutineType: String, Codable, CaseIterable, Identifiable {
     case exercise = "Exercise"
     case meds = "Meds"
     case bathroom = "Bathroom"
+    case neck = "Neck"
     
     public var id: String { rawValue }
     
@@ -21,6 +22,8 @@ public enum RoutineType: String, Codable, CaseIterable, Identifiable {
             return "pills.fill"
         case .bathroom:
             return "shower.fill"
+        case .neck:
+            return "figure.stand.line.dotted.figure.stand"
         }
     }
 }
@@ -120,6 +123,10 @@ public struct MorningTask: Identifiable, Codable, Equatable {
     
     public var isFootRoutine: Bool {
         routineType == .foot || title.trimmingCharacters(in: .whitespacesAndNewlines).localizedCaseInsensitiveCompare("Foot") == .orderedSame
+    }
+    
+    public var isNeckRoutine: Bool {
+        routineType == .neck || title.trimmingCharacters(in: .whitespacesAndNewlines).localizedCaseInsensitiveCompare("Neck") == .orderedSame
     }
     
     public var isStretchingRoutine: Bool {

@@ -349,6 +349,14 @@ public class AppState {
                     subtasks: nil
                 ),
                 MorningTask(
+                    title: "Foot",
+                    subtitle: "Guided Plantar Fascia & Calf Rehab",
+                    isCompleted: false,
+                    routineType: .foot,
+                    durationMinutes: 10,
+                    subtasks: nil
+                ),
+                MorningTask(
                     title: "Stretch",
                     subtitle: "Guided mobility & spine decompression",
                     isCompleted: false,
@@ -357,19 +365,19 @@ public class AppState {
                     subtasks: nil
                 ),
                 MorningTask(
+                    title: "Neck",
+                    subtitle: "Suboccipital release & neck stretches",
+                    isCompleted: false,
+                    routineType: .neck,
+                    durationMinutes: 5,
+                    subtasks: nil
+                ),
+                MorningTask(
                     title: "Exercise",
                     subtitle: "Bodyweight Pushups & Calisthenics",
                     isCompleted: false,
                     routineType: .exercise,
                     durationMinutes: 15,
-                    subtasks: nil
-                ),
-                MorningTask(
-                    title: "Foot",
-                    subtitle: "Guided Plantar Fascia & Calf Rehab",
-                    isCompleted: false,
-                    routineType: .foot,
-                    durationMinutes: 10,
                     subtasks: nil
                 ),
                 MorningTask(
@@ -566,11 +574,28 @@ public class AppState {
         Task {
             await fetchCloudData()
             await fetchServerState()
+            
+            // Fallback: If local storage was purged and server couldn't restore tasks, regenerate them
+            await MainActor.run {
+                if self.morningTasks.isEmpty {
+                    self.morningTasks = AppState.schedule(for: self.currentMorningMode)
+                    self.saveMorningTasks()
+                }
+                if self.nightTasks.isEmpty {
+                    self.nightTasks = [
+                        NightTask(title: "Teeth"),
+                        NightTask(title: "Floss"),
+                        NightTask(title: "Cleanse"),
+                        NightTask(title: "Meds")
+                    ]
+                    self.saveNightTasks()
+                }
+            }
         }
         
         // Populate or migrate to the Tri-Mode morning schedule
         let hasUpdatedV4 = UserDefaults.standard.bool(forKey: "hasUpdatedTriModeSchedule_v4")
-        if !hasUpdatedV4 || morningTasks.isEmpty {
+        if !hasUpdatedV4 {
             morningTasks = AppState.schedule(for: currentMorningMode)
             saveMorningTasks()
             UserDefaults.standard.set(true, forKey: "hasUpdatedTriModeSchedule_v4")
@@ -578,7 +603,7 @@ public class AppState {
         
         // Populate default night tasks if empty
         let hasPopulatedNight = UserDefaults.standard.bool(forKey: "hasPopulatedNightTasks_v1")
-        if !hasPopulatedNight || nightTasks.isEmpty {
+        if !hasPopulatedNight {
             nightTasks = [
                 NightTask(title: "Teeth"),
                 NightTask(title: "Floss"),
