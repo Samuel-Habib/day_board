@@ -318,3 +318,31 @@ All data is saved as JSON in the application's `Documents` sandbox directory:
   ```bash
   xcodebuild -scheme "Stupid DashBoard" -destination "generic/platform=tvOS" -configuration Debug build
   ```
+
+---
+
+## 7. Server Persistence & Behavioral Friction Engine
+
+A high-performance persistence database and FastAPI server runs directly on the local workstation/server:
+
+* **Location:** [`server/`](file:///home/dev/products/day_board/server)
+* **Database Engine:** SQLite 3 with Write-Ahead Logging (`WAL` mode) at [`server/dashboard.db`](file:///home/dev/products/day_board/server/dashboard.db)
+* **Systemd Service:** `dayboard-server.service` (Active, running on port 8080)
+* **Server URL:**
+  * Local: `http://localhost:8080`
+  * Apple TV LAN: `http://10.0.0.148:8080`
+  * Interactive API Docs: `http://10.0.0.148:8080/docs`
+
+### Primary Endpoints
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/routines/morning` | `POST` / `GET` | Morning routine start/finish times, completion flag, start delay past 8:15 AM, total overdue slippage, and flow friction score. |
+| `/api/tasks/event` | `POST` | Fine-grained habit milestone event (started, checked off, exact duration, deadline adherence, overdue seconds, subtasks). |
+| `/api/medications/log` | `POST` | Medication intake; automatically computes Omeprazole 30m wait countdown and 30-60m eating window. |
+| `/api/medications/eating-event` | `POST` | Validates breakfast timing against Omeprazole window; flags breach friction if eaten too early or late. |
+| `/api/guided/session` | `POST` | Foot Rehab, Stretching, and Bodyweight workout session tracking (sets, exercises, hold durations). |
+| `/api/work/session` | `POST` | Work & Focus Hub sprints (project, duration, runway bucket, exit reason, fatigue/interruption notes). |
+| `/api/friction/log` | `POST` / `GET` | Dedicated friction logging (productive resistance vs unproductive bottlenecks). |
+| `/api/sync/state` | `POST` | Full offline-first state reconciliation and daily JSON backup snapshot in a single payload. |
+| `/api/analytics/today` | `GET` | Live real-time dashboard intelligence: morning progress, Omeprazole countdown, sprint totals, and friction alerts. |
+| `/api/analytics/trends` | `GET` | 7-day and 30-day analytics: bottleneck tasks, morning duration averages, and focus hours. |
