@@ -914,3 +914,270 @@ public struct BodyweightRoutineSession: Identifiable, Codable, Equatable {
     }
 }
 
+// MARK: - Dashboard Persistence API Models
+
+public struct DashboardSyncPayload: Codable {
+    public var date: String?
+    public var morning_tasks: [MorningTask]?
+    public var night_tasks: [NightTask]?
+    public var daily_tasks: [DailyTask]?
+    public var medications: [MedicationItem]?
+    public var work_sessions: [WorkSession]?
+    public var foot_sessions: [FootRoutineSession]?
+    public var stretching_sessions: [StretchingRoutineSession]?
+    public var bodyweight_sessions: [BodyweightRoutineSession]?
+    public var routine_sessions: [RoutineSession]?
+    public var client_version: String?
+    
+    public init(
+        date: String? = nil,
+        morning_tasks: [MorningTask]? = nil,
+        night_tasks: [NightTask]? = nil,
+        daily_tasks: [DailyTask]? = nil,
+        medications: [MedicationItem]? = nil,
+        work_sessions: [WorkSession]? = nil,
+        foot_sessions: [FootRoutineSession]? = nil,
+        stretching_sessions: [StretchingRoutineSession]? = nil,
+        bodyweight_sessions: [BodyweightRoutineSession]? = nil,
+        routine_sessions: [RoutineSession]? = nil,
+        client_version: String? = "StupidDashBoard-tvOS-26.2"
+    ) {
+        self.date = date
+        self.morning_tasks = morning_tasks
+        self.night_tasks = night_tasks
+        self.daily_tasks = daily_tasks
+        self.medications = medications
+        self.work_sessions = work_sessions
+        self.foot_sessions = foot_sessions
+        self.stretching_sessions = stretching_sessions
+        self.bodyweight_sessions = bodyweight_sessions
+        self.routine_sessions = routine_sessions
+        self.client_version = client_version
+    }
+}
+
+public struct DashboardSnapshotResponse: Codable {
+    public var date: String?
+    public var morning_tasks: [MorningTask]?
+    public var night_tasks: [NightTask]?
+    public var daily_tasks: [DailyTask]?
+    public var medications: [MedicationItem]?
+    public var work_sessions: [WorkSession]?
+    public var foot_sessions: [FootRoutineSession]?
+    public var stretching_sessions: [StretchingRoutineSession]?
+    public var bodyweight_sessions: [BodyweightRoutineSession]?
+    public var routine_sessions: [RoutineSession]?
+    public var client_version: String?
+}
+
+public struct MorningRoutineUpdate: Codable {
+    public var date: String?
+    public var started_at: Date?
+    public var completed_at: Date?
+    public var is_completed: Bool?
+    public var total_duration_seconds: Double?
+    public var tasks_count: Int?
+    public var completed_tasks_count: Int?
+    public var start_delay_seconds: Double?
+    public var total_overdue_seconds: Double?
+    public var notes: String?
+    
+    public init(
+        date: String? = nil,
+        started_at: Date? = nil,
+        completed_at: Date? = nil,
+        is_completed: Bool? = nil,
+        total_duration_seconds: Double? = nil,
+        tasks_count: Int? = nil,
+        completed_tasks_count: Int? = nil,
+        start_delay_seconds: Double? = nil,
+        total_overdue_seconds: Double? = nil,
+        notes: String? = nil
+    ) {
+        self.date = date
+        self.started_at = started_at
+        self.completed_at = completed_at
+        self.is_completed = is_completed
+        self.total_duration_seconds = total_duration_seconds
+        self.tasks_count = tasks_count
+        self.completed_tasks_count = completed_tasks_count
+        self.start_delay_seconds = start_delay_seconds
+        self.total_overdue_seconds = total_overdue_seconds
+        self.notes = notes
+    }
+}
+
+public struct MorningRoutineResponse: Codable {
+    public var id: String
+    public var date: String
+    public var started_at: String?
+    public var completed_at: String?
+    public var is_completed: Bool
+    public var total_duration_seconds: Double
+    public var tasks_count: Int
+    public var completed_tasks_count: Int
+    public var target_start_time: String
+    public var target_end_time: String
+    public var start_delay_seconds: Double
+    public var total_overdue_seconds: Double
+    public var friction_score: Double
+    public var notes: String?
+    public var created_at: String
+    public var updated_at: String
+}
+
+public struct TaskEventCreate: Codable {
+    public var task_id: String
+    public var task_title: String
+    public var routine_period: String
+    public var date: String?
+    public var routine_type: String?
+    public var target_deadline_time: String?
+    public var duration_minutes_allotted: Int?
+    public var started_at: Date?
+    public var completed_at: Date?
+    public var actual_duration_seconds: Double
+    public var is_completed: Bool
+    public var is_overdue: Bool
+    public var overdue_seconds: Double
+    public var subtasks_completed: [String]?
+    public var friction_notes: String?
+    
+    public init(
+        task_id: String,
+        task_title: String,
+        routine_period: String = "morning",
+        date: String? = nil,
+        routine_type: String? = nil,
+        target_deadline_time: String? = nil,
+        duration_minutes_allotted: Int? = nil,
+        started_at: Date? = nil,
+        completed_at: Date? = nil,
+        actual_duration_seconds: Double = 0.0,
+        is_completed: Bool = true,
+        is_overdue: Bool = false,
+        overdue_seconds: Double = 0.0,
+        subtasks_completed: [String]? = nil,
+        friction_notes: String? = nil
+    ) {
+        self.task_id = task_id
+        self.task_title = task_title
+        self.routine_period = routine_period
+        self.date = date
+        self.routine_type = routine_type
+        self.target_deadline_time = target_deadline_time
+        self.duration_minutes_allotted = duration_minutes_allotted
+        self.started_at = started_at
+        self.completed_at = completed_at
+        self.actual_duration_seconds = actual_duration_seconds
+        self.is_completed = is_completed
+        self.is_overdue = is_overdue
+        self.overdue_seconds = overdue_seconds
+        self.subtasks_completed = subtasks_completed
+        self.friction_notes = friction_notes
+    }
+}
+
+public struct MedicationLogCreate: Codable {
+    public var name: String
+    public var period: String
+    public var date: String?
+    public var medication_id: String?
+    public var taken_at: Date?
+    public var is_omeprazole: Bool
+    public var notes: String?
+    
+    public init(
+        name: String,
+        period: String = "morning",
+        date: String? = nil,
+        medication_id: String? = nil,
+        taken_at: Date? = nil,
+        is_omeprazole: Bool = false,
+        notes: String? = nil
+    ) {
+        self.name = name
+        self.period = period
+        self.date = date
+        self.medication_id = medication_id
+        self.taken_at = taken_at
+        self.is_omeprazole = is_omeprazole
+        self.notes = notes
+    }
+}
+
+public struct EatingEventCreate: Codable {
+    public var date: String?
+    public var food_consumed_at: String?
+    public var notes: String?
+    
+    public init(date: String? = nil, food_consumed_at: String? = nil, notes: String? = nil) {
+        self.date = date
+        self.food_consumed_at = food_consumed_at
+        self.notes = notes
+    }
+}
+
+public struct OmeprazoleServerStatus: Codable {
+    public var status: String
+    public var message: String
+    public var taken_at: String?
+    public var eating_window_opens_at: String?
+    public var eating_window_closes_at: String?
+    public var wait_seconds_remaining: Int
+    public var window_seconds_remaining: Int?
+    public var eating_window_open: Bool
+    public var eating_window_closed: Bool
+    public var food_consumed: Bool?
+}
+
+public struct WorkSessionCreate: Codable {
+    public var id: String?
+    public var title: String
+    public var project: String
+    public var date: String?
+    public var started_at: String?
+    public var ended_at: String?
+    public var duration_seconds: Double
+    public var is_completed: Bool
+    public var exit_reason: String?
+    public var runway_bucket: String?
+    public var linked_task_id: String?
+    public var is_overtime: Bool
+    public var interruption_notes: String?
+    public var remote_entry_id: Int?
+    
+    public init(
+        id: String? = nil,
+        title: String = "Deep Work",
+        project: String = "Work",
+        date: String? = nil,
+        started_at: String? = nil,
+        ended_at: String? = nil,
+        duration_seconds: Double = 0.0,
+        is_completed: Bool = true,
+        exit_reason: String? = "Completed",
+        runway_bucket: String? = "Technical Hands-on",
+        linked_task_id: String? = nil,
+        is_overtime: Bool = false,
+        interruption_notes: String? = nil,
+        remote_entry_id: Int? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.project = project
+        self.date = date
+        self.started_at = started_at
+        self.ended_at = ended_at
+        self.duration_seconds = duration_seconds
+        self.is_completed = is_completed
+        self.exit_reason = exit_reason
+        self.runway_bucket = runway_bucket
+        self.linked_task_id = linked_task_id
+        self.is_overtime = is_overtime
+        self.interruption_notes = interruption_notes
+        self.remote_entry_id = remote_entry_id
+    }
+}
+
+

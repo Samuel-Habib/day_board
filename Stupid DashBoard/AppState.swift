@@ -124,8 +124,43 @@ public class AppState {
         currentMorningMode == .express
     }
     
+    public var todayDateKey: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: currentDate)
+    }
+    
+    // Backend Server State
+    public var backendServerUrl: String {
+        get {
+            UserDefaults.standard.string(forKey: "dashboardPersistenceServerUrl") ?? DashboardPersistenceService.defaultServerURL
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "dashboardPersistenceServerUrl")
+        }
+    }
+    public var isServerReachable: Bool = false
+    public var lastServerSyncDate: Date? = nil
+    public var isServerSyncing: Bool = false
+    public var isSyncingFromServer: Bool = false
+    
     // Morning Focus "No Choice" Mode State
-    public var isMorningFocusBypassed: Bool = false
+    public var lastBypassedMorningDate: String = UserDefaults.standard.string(forKey: "lastBypassedMorningDate") ?? ""
+    
+    public var isMorningFocusBypassed: Bool {
+        get {
+            lastBypassedMorningDate == todayDateKey
+        }
+        set {
+            if newValue {
+                lastBypassedMorningDate = todayDateKey
+                UserDefaults.standard.set(todayDateKey, forKey: "lastBypassedMorningDate")
+            } else {
+                lastBypassedMorningDate = ""
+                UserDefaults.standard.removeObject(forKey: "lastBypassedMorningDate")
+            }
+        }
+    }
     
     public var hasActiveMorningRoutine: Bool {
         !morningTasks.isEmpty && morningTasks.contains(where: { !$0.isCompleted })
@@ -530,6 +565,7 @@ public class AppState {
         
         Task {
             await fetchCloudData()
+            await fetchServerState()
         }
         
         // Populate or migrate to the Tri-Mode morning schedule
@@ -563,6 +599,7 @@ public class AppState {
             self?.checkDayChange()
             Task { [weak self] in
                 await self?.fetchCloudData()
+                await self?.fetchServerState()
             }
         }
         
@@ -680,9 +717,10 @@ public class AppState {
             
             UserDefaults.standard.set(todayString, forKey: "lastActiveDate")
             
-            // Also refresh weather on new day
+            // Also refresh weather & sync new day schedule to server
             Task {
                 await fetchWeather()
+                await syncStateWithServer()
             }
         }
     }
@@ -753,9 +791,38 @@ public class AppState {
                 if currentMorningMode == .hitByTruck {
                     presetRunwayBucketForDesk = .grounding
                 }
+                // When morning routine completes, bypass so it doesn't reopen upon relaunch
+                isMorningFocusBypassed = true
             }
             
             saveMorningTasks()
+            
+            let taskIdStr = task.id.uuidString
+            let titleStr = task.title
+            let allDone = morningTasks.allSatisfy { $0.isCompleted }
+            let completedCount = morningTasks.filter { $0.isCompleted }.count
+            let totalCount = morningTasks.count
+            let todayKey = todayDateKey
+            
+            Task {
+                let event = TaskEventCreate(
+                    task_id: taskIdStr,
+                    task_title: titleStr,
+                    routine_period: "morning",
+                    date: todayKey,
+                    is_completed: true,
+                    friction_notes: "Morning routine step completed"
+                )
+                _ = await DashboardPersistenceService.shared.logTaskEvent(event: event)
+                
+                let update = MorningRoutineUpdate(
+                    date: todayKey,
+                    is_completed: allDone,
+                    tasks_count: totalCount,
+                    completed_tasks_count: completedCount
+                )
+                _ = await DashboardPersistenceService.shared.updateMorningRoutine(update: update)
+            }
             
             if task.isMedsTask && medsTakenTimestamp == nil {
                 startMedsTimer()
@@ -911,6 +978,11 @@ public class AppState {
         } catch {
             print("Failed to save morning tasks: \(error.localizedDescription)")
         }
+        if !isSyncingFromServer {
+            Task { [weak self] in
+                await self?.syncStateWithServer()
+            }
+        }
     }
     
     public func saveNightTasks() {
@@ -920,6 +992,11 @@ public class AppState {
         } catch {
             print("Failed to save night tasks: \(error.localizedDescription)")
         }
+        if !isSyncingFromServer {
+            Task { [weak self] in
+                await self?.syncStateWithServer()
+            }
+        }
     }
     
     public func saveDailyTasks() {
@@ -928,6 +1005,11 @@ public class AppState {
             try data.write(to: dailyTasksURL)
         } catch {
             print("Failed to save daily tasks: \(error.localizedDescription)")
+        }
+        if !isSyncingFromServer {
+            Task { [weak self] in
+                await self?.syncStateWithServer()
+            }
         }
     }
     
@@ -1377,6 +1459,19 @@ public class AppState {
         let now = Date().timeIntervalSince1970
         UserDefaults.standard.set(now, forKey: "medsTakenTimestamp")
         medsTakenTimestamp = Date()
+        
+        let todayKey = todayDateKey
+        Task {
+            let log = MedicationLogCreate(
+                name: "Omeprazole",
+                period: "morning",
+                date: todayKey,
+                taken_at: Date(),
+                is_omeprazole: true,
+                notes: "Logged from Morning Routine"
+            )
+            _ = await DashboardPersistenceService.shared.logMedication(log: log)
+        }
     }
     
     public func clearMedsTimer() {
@@ -2058,6 +2153,113 @@ public class AppState {
         case 85, 86: return "Snow Showers"
         case 95, 96, 99: return "Thunderstorm"
         default: return "Cloudy"
+        }
+    }
+    
+    // MARK: - Backend Server Synchronization (Tailscale 100.113.33.28:8080)
+    
+    public func syncStateWithServer() async {
+        guard !isServerSyncing else { return }
+        isServerSyncing = true
+        defer { isServerSyncing = false }
+        
+        let payload = DashboardSyncPayload(
+            morning_tasks: morningTasks,
+            night_tasks: nightTasks,
+            daily_tasks: dailyTasks,
+            medications: medications,
+            work_sessions: workSessions,
+            foot_sessions: footRoutineSessions,
+            stretching_sessions: stretchingRoutineSessions,
+            bodyweight_sessions: bodyweightRoutineSessions,
+            routine_sessions: routineSessions,
+            client_version: "StupidDashBoard-tvOS-26.2"
+        )
+        
+        let success = await DashboardPersistenceService.shared.syncState(payload: payload)
+        await MainActor.run {
+            self.isServerReachable = success
+            if success {
+                self.lastServerSyncDate = Date()
+            }
+        }
+    }
+    
+    public func fetchServerState() async {
+        let isHealthy = (try? await DashboardPersistenceService.shared.testConnection()) ?? false
+        await MainActor.run {
+            self.isServerReachable = isHealthy
+        }
+        guard isHealthy else { return }
+        
+        if let snapshot = await DashboardPersistenceService.shared.fetchSnapshot(date: todayDateKey) {
+            await MainActor.run {
+                self.isSyncingFromServer = true
+                defer { self.isSyncingFromServer = false }
+                
+                // Reconcile morning tasks
+                if let remoteMorning = snapshot.morning_tasks, !remoteMorning.isEmpty {
+                    for remoteTask in remoteMorning {
+                        if let idx = self.morningTasks.firstIndex(where: { $0.id == remoteTask.id }) {
+                            if remoteTask.isCompleted && !self.morningTasks[idx].isCompleted {
+                                self.morningTasks[idx].isCompleted = true
+                            }
+                        }
+                    }
+                    if self.morningTasks.isEmpty {
+                        self.morningTasks = remoteMorning
+                    }
+                    self.saveMorningTasks()
+                }
+                
+                // Reconcile night tasks
+                if let remoteNight = snapshot.night_tasks, !remoteNight.isEmpty {
+                    for remoteTask in remoteNight {
+                        if let idx = self.nightTasks.firstIndex(where: { $0.id == remoteTask.id }) {
+                            if remoteTask.isCompleted && !self.nightTasks[idx].isCompleted {
+                                self.nightTasks[idx].isCompleted = true
+                            }
+                        }
+                    }
+                    if self.nightTasks.isEmpty {
+                        self.nightTasks = remoteNight
+                    }
+                    self.saveNightTasks()
+                }
+                
+                // Reconcile daily tasks
+                if let remoteDaily = snapshot.daily_tasks, !remoteDaily.isEmpty {
+                    for remoteTask in remoteDaily {
+                        if let idx = self.dailyTasks.firstIndex(where: { $0.id == remoteTask.id }) {
+                            if remoteTask.isCompleted && !self.dailyTasks[idx].isCompleted {
+                                self.dailyTasks[idx].isCompleted = true
+                            }
+                        } else {
+                            self.dailyTasks.append(remoteTask)
+                        }
+                    }
+                    self.saveDailyTasks()
+                }
+                
+                self.lastServerSyncDate = Date()
+            }
+        }
+        
+        // Reconcile Omeprazole medication status
+        if let status = await DashboardPersistenceService.shared.fetchOmeprazoleStatus(date: todayDateKey) {
+            await MainActor.run {
+                if let takenAtStr = status.taken_at {
+                    let iso = ISO8601DateFormatter()
+                    iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                    let parsedDate = iso.date(from: takenAtStr) ?? ISO8601DateFormatter().date(from: takenAtStr)
+                    if let takenDate = parsedDate {
+                        if self.medsTakenTimestamp == nil {
+                            self.medsTakenTimestamp = takenDate
+                            UserDefaults.standard.set(takenDate.timeIntervalSince1970, forKey: "medsTakenTimestamp")
+                        }
+                    }
+                }
+            }
         }
     }
 }

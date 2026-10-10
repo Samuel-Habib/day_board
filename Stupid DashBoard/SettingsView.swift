@@ -23,6 +23,12 @@ public struct SettingsView: View {
     @State private var testResultText = ""
     @State private var selectedSessionForSummary: RoutineSession?
     
+    // Backend Persistence Server State
+    @State private var showBackendServerAlert = false
+    @State private var serverUrlInput = ""
+    @State private var showBackendResultAlert = false
+    @State private var backendResultText = ""
+    
     // Foot Routine Settings
     @State private var showFootRoutineSettings = false
     @State private var showStretchingRoutineSettings = false
@@ -34,149 +40,9 @@ public struct SettingsView: View {
     public var body: some View {
         NavigationStack {
             HStack(spacing: 40) {
-                // Morning Tasks column
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Morning Habits")
-                                .font(.title2)
-                                .fontWeight(.bold)
-                            Text("Starts at 8:15 AM")
-                                .font(.caption2)
-                                .foregroundColor(Color(red: 1.0, green: 0.78, blue: 0.2))
-                        }
-                        Spacer()
-                        Button(action: {
-                            appState.morningTasks = AppState.defaultMorningSchedule()
-                            appState.saveMorningTasks()
-                        }) {
-                            Image(systemName: "arrow.counterclockwise")
-                        }
-                        Button(action: {
-                            newMorningTitle = ""
-                            showAddMorningAlert = true
-                        }) {
-                            Image(systemName: "plus")
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    List {
-                        ForEach(appState.morningTasks) { task in
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(task.title)
-                                        .font(.body)
-                                        .fontWeight(.semibold)
-                                    if let deadline = task.targetDeadlineTime {
-                                        Text("\(deadline) • \(task.durationMinutes ?? 10)m")
-                                            .font(.caption2)
-                                            .foregroundColor(Color(red: 1.0, green: 0.78, blue: 0.2))
-                                    }
-                                }
-                                Spacer()
-                                Button(action: {
-                                    editingTaskID = task.id
-                                    editingIsNightTask = false
-                                    renameTitle = task.title
-                                    showRenameAlert = true
-                                }) {
-                                    Image(systemName: "pencil")
-                                        .foregroundColor(Color.white.opacity(0.60))
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.trailing, 10)
-                            }
-                        }
-                        .onDelete { indexSet in
-                            appState.deleteMorningTask(at: indexSet)
-                        }
-                        .onMove { indices, newOffset in
-                            appState.moveMorningTask(from: indices, to: newOffset)
-                        }
-                    }
-                    .environment(\.editMode, .constant(.active))
-                }
-                .frame(maxWidth: .infinity)
-                
-                // Night Tasks column
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack {
-                        Text("Night Habits")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Spacer()
-                        Button(action: {
-                            newNightTitle = ""
-                            showAddNightAlert = true
-                        }) {
-                            Image(systemName: "plus")
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    List {
-                        ForEach(appState.nightTasks) { task in
-                            HStack {
-                                Text(task.title)
-                                    .font(.body)
-                                Spacer()
-                                Button(action: {
-                                    editingTaskID = task.id
-                                    editingIsNightTask = true
-                                    renameTitle = task.title
-                                    showRenameAlert = true
-                                }) {
-                                    Image(systemName: "pencil")
-                                        .foregroundColor(Color.white.opacity(0.60))
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.trailing, 10)
-                            }
-                        }
-                        .onDelete { indexSet in
-                            appState.deleteNightTask(at: indexSet)
-                        }
-                        .onMove { indices, newOffset in
-                            appState.moveNightTask(from: indices, to: newOffset)
-                        }
-                    }
-                    .environment(\.editMode, .constant(.active))
-                }
-                .frame(maxWidth: .infinity)
-                
-                // Daily Tasks column
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack {
-                        Text("Today's Tasks")
-                            .font(.title2)
-                            .fontWeight(.bold)
-                        Spacer()
-                        Button(action: {
-                            newDailyTitle = ""
-                            showAddDailyAlert = true
-                        }) {
-                            Image(systemName: "plus")
-                        }
-                    }
-                    .padding(.horizontal)
-                    
-                    List {
-                        ForEach(appState.todayDailyTasks) { task in
-                            Text(task.title)
-                                .font(.body)
-                        }
-                        .onDelete { indexSet in
-                            let todayTasks = appState.todayDailyTasks
-                            for index in indexSet {
-                                let task = todayTasks[index]
-                                appState.deleteDailyTask(id: task.id)
-                            }
-                        }
-                    }
-                    .environment(\.editMode, .constant(.active))
-                }
-                .frame(maxWidth: .infinity)
+                morningColumn
+                nightColumn
+                dailyColumn
             }
             .padding()
             .navigationTitle("Configuration")
@@ -187,35 +53,7 @@ public struct SettingsView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    HStack(spacing: 16) {
-                        Button(action: {
-                            showFootRoutineSettings = true
-                        }) {
-                            Label("Foot Rehab", systemImage: "shoeprints.fill")
-                        }
-                        
-                        Button(action: {
-                            showStretchingRoutineSettings = true
-                        }) {
-                            Label("Stretching", systemImage: "figure.flexibility")
-                        }
-                        
-                        Button(action: {
-                            apiKeyInput = appState.timekeepingApiKey
-                            showApiKeyAlert = true
-                        }) {
-                            Label(appState.timekeepingApiKey.isEmpty ? "Time Sync" : "Sync Active", systemImage: "clock.badge.checkmark")
-                        }
-                        
-                        Button(action: {
-                            dismiss()
-                            appState.lastDismissedNightCycle = ""
-                            UserDefaults.standard.removeObject(forKey: "lastDismissedNightCycle")
-                            appState.trigger10PMNightModePreview()
-                        }) {
-                            Label("Test 10 PM Alert", systemImage: "moon.stars.fill")
-                        }
-                    }
+                    toolbarTrailingItems
                 }
             }
             .alert("Add Morning Habit", isPresented: $showAddMorningAlert) {
@@ -280,6 +118,45 @@ public struct SettingsView: View {
             } message: {
                 Text(testResultText)
             }
+            .alert("Backend Persistence Server", isPresented: $showBackendServerAlert) {
+                TextField("http://100.113.33.28:8080", text: $serverUrlInput)
+                Button("Save & Test") {
+                    appState.backendServerUrl = serverUrlInput
+                    Task {
+                        do {
+                            let healthy = try await DashboardPersistenceService.shared.testConnection()
+                            await appState.syncStateWithServer()
+                            await MainActor.run {
+                                backendResultText = healthy ? "Connected to backend server at \(appState.backendServerUrl)! State synchronized." : "Server responded with an unexpected status."
+                                showBackendResultAlert = true
+                            }
+                        } catch {
+                            await MainActor.run {
+                                backendResultText = "Connection error: \(error.localizedDescription)"
+                                showBackendResultAlert = true
+                            }
+                        }
+                    }
+                }
+                Button("Sync Now") {
+                    Task {
+                        await appState.syncStateWithServer()
+                        await appState.fetchServerState()
+                        await MainActor.run {
+                            backendResultText = "State synchronized with \(appState.backendServerUrl)."
+                            showBackendResultAlert = true
+                        }
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Tailscale Backend Server (default: http://100.113.33.28:8080). Synchronizes morning routines, habits, and medications.")
+            }
+            .alert("Server Status", isPresented: $showBackendResultAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(backendResultText)
+            }
             .fullScreenCover(item: $selectedSessionForSummary) { session in
                 RoutineSummaryView(session: session) {
                     selectedSessionForSummary = nil
@@ -290,6 +167,201 @@ public struct SettingsView: View {
             }
             .sheet(isPresented: $showStretchingRoutineSettings) {
                 StretchingRoutineSettingsView(appState: appState)
+            }
+        }
+    }
+    
+    // MARK: - Subviews
+    
+    @ViewBuilder
+    private var morningColumn: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Morning Habits")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    Text("\(appState.currentMorningMode.rawValue) • \(appState.currentMorningMode.estimatedMinutes)m")
+                        .font(.caption2)
+                        .foregroundColor(Color(red: 1.0, green: 0.78, blue: 0.2))
+                }
+                Spacer()
+                Button(action: {
+                    appState.morningTasks = AppState.defaultMorningSchedule()
+                    appState.saveMorningTasks()
+                }) {
+                    Image(systemName: "arrow.counterclockwise")
+                }
+                Button(action: {
+                    newMorningTitle = ""
+                    showAddMorningAlert = true
+                }) {
+                    Image(systemName: "plus")
+                }
+            }
+            .padding(.horizontal)
+            
+            List {
+                ForEach(appState.morningTasks) { task in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(task.title)
+                                .font(.body)
+                                .fontWeight(.semibold)
+                            if let deadline = task.targetDeadlineTime {
+                                Text("\(deadline) • \(task.durationMinutes ?? 10)m")
+                                    .font(.caption2)
+                                    .foregroundColor(Color(red: 1.0, green: 0.78, blue: 0.2))
+                            }
+                        }
+                        Spacer()
+                        Button(action: {
+                            editingTaskID = task.id
+                            editingIsNightTask = false
+                            renameTitle = task.title
+                            showRenameAlert = true
+                        }) {
+                            Image(systemName: "pencil")
+                                .foregroundColor(Color.white.opacity(0.60))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 10)
+                    }
+                }
+                .onDelete { indexSet in
+                    appState.deleteMorningTask(at: indexSet)
+                }
+                .onMove { indices, newOffset in
+                    appState.moveMorningTask(from: indices, to: newOffset)
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    @ViewBuilder
+    private var nightColumn: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text("Night Habits")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Spacer()
+                Button(action: {
+                    newNightTitle = ""
+                    showAddNightAlert = true
+                }) {
+                    Image(systemName: "plus")
+                }
+            }
+            .padding(.horizontal)
+            
+            List {
+                ForEach(appState.nightTasks) { task in
+                    HStack {
+                        Text(task.title)
+                            .font(.body)
+                        Spacer()
+                        Button(action: {
+                            editingTaskID = task.id
+                            editingIsNightTask = true
+                            renameTitle = task.title
+                            showRenameAlert = true
+                        }) {
+                            Image(systemName: "pencil")
+                                .foregroundColor(Color.white.opacity(0.60))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 10)
+                    }
+                }
+                .onDelete { indexSet in
+                    appState.deleteNightTask(at: indexSet)
+                }
+                .onMove { indices, newOffset in
+                    appState.moveNightTask(from: indices, to: newOffset)
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    @ViewBuilder
+    private var dailyColumn: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                Text("Today's Tasks")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Spacer()
+                Button(action: {
+                    newDailyTitle = ""
+                    showAddDailyAlert = true
+                }) {
+                    Image(systemName: "plus")
+                }
+            }
+            .padding(.horizontal)
+            
+            List {
+                ForEach(appState.todayDailyTasks) { task in
+                    Text(task.title)
+                        .font(.body)
+                }
+                .onDelete { indexSet in
+                    let todayTasks = appState.todayDailyTasks
+                    for index in indexSet {
+                        let task = todayTasks[index]
+                        appState.deleteDailyTask(id: task.id)
+                    }
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+        }
+        .frame(maxWidth: .infinity)
+    }
+    
+    @ViewBuilder
+    private var toolbarTrailingItems: some View {
+        HStack(spacing: 16) {
+            Button(action: {
+                showFootRoutineSettings = true
+            }) {
+                Label("Foot Rehab", systemImage: "shoeprints.fill")
+            }
+            
+            Button(action: {
+                showStretchingRoutineSettings = true
+            }) {
+                Label("Stretching", systemImage: "figure.flexibility")
+            }
+            
+            Button(action: {
+                serverUrlInput = appState.backendServerUrl
+                showBackendServerAlert = true
+            }) {
+                Label(
+                    appState.isServerReachable ? "Server Online" : "Backend Server",
+                    systemImage: appState.isServerReachable ? "network" : "network.slash"
+                )
+            }
+            
+            Button(action: {
+                apiKeyInput = appState.timekeepingApiKey
+                showApiKeyAlert = true
+            }) {
+                Label(appState.timekeepingApiKey.isEmpty ? "Time Sync" : "Sync Active", systemImage: "clock.badge.checkmark")
+            }
+            
+            Button(action: {
+                dismiss()
+                appState.lastDismissedNightCycle = ""
+                UserDefaults.standard.removeObject(forKey: "lastDismissedNightCycle")
+                appState.trigger10PMNightModePreview()
+            }) {
+                Label("Test 10 PM Alert", systemImage: "moon.stars.fill")
             }
         }
     }
